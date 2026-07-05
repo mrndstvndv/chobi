@@ -52,6 +52,7 @@ fun MainContent(
     // Summary Card
     item {
       SummaryCard(
+        expenses = expenses,
         totalAmount = totalAmount,
         currencyCode = currencyCode,
         currencyFormatter = currencyFormatter,
@@ -118,7 +119,8 @@ fun MainContent(
             onDelete = { onDeleteExpense(expense) },
             currencyFormatter = currencyFormatter,
             timeFormatPreference = timeFormatPreference,
-            onLongClick = { onExpenseLongClick?.invoke(expense) }
+            onLongClick = { onExpenseLongClick?.invoke(expense) },
+            modifier = Modifier.animateItem()
           )
         }
       }

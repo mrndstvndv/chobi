@@ -1,5 +1,8 @@
 package com.example.chobi.ui.main
 
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.clickable
@@ -211,18 +214,29 @@ fun AddExpenseSheet(
           BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
         }
 
+        val scale by animateFloatAsState(
+          targetValue = if (selected) 1.06f else 1.0f,
+          animationSpec = spring(
+            dampingRatio = 0.55f,
+            stiffness = 500f
+          ),
+          label = "chip_scale"
+        )
+
         Surface(
           shape = RoundedCornerShape(8.dp),
           color = containerColor,
           contentColor = contentColor,
           border = border,
-          modifier = Modifier.combinedClickable(
-            onClick = { selectedCategoryName = cat.name },
-            onLongClick = {
-              editingCategory = cat
-              showAddCategoryDialog = true
-            }
-          )
+          modifier = Modifier
+            .graphicsLayer(scaleX = scale, scaleY = scale)
+            .combinedClickable(
+              onClick = { selectedCategoryName = cat.name },
+              onLongClick = {
+                editingCategory = cat
+                showAddCategoryDialog = true
+              }
+            )
         ) {
           Row(
             modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
@@ -250,7 +264,7 @@ fun AddExpenseSheet(
           editingCategory = null
           showAddCategoryDialog = true 
         },
-        label = { Text("Add Custom") },
+        label = { Text("Add Category") },
         leadingIcon = {
           Icon(
             imageVector = Icons.Default.Add,

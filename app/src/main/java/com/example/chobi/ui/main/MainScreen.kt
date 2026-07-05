@@ -1,6 +1,7 @@
 package com.example.chobi.ui.main
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -164,7 +165,7 @@ fun MainScreen(
   Scaffold(
     topBar = {
       TopAppBar(
-        title = { Text("Expense Tracker", style = MaterialTheme.typography.titleLarge) },
+        title = { Text("Chobi", style = MaterialTheme.typography.titleLarge) },
         actions = {
           IconButton(onClick = { showSettingsDialog = true }) {
             Icon(

@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Base application theme override for Dark Mode. -->
+    <style name="Theme.Chobi" parent="android:Theme.Material.NoActionBar" />
+
+    <!-- Splash Screen Starting Theme with Material You Dynamic Colors (Dark Mode) -->
+    <style name="Theme.Chobi.Starting" parent="Theme.SplashScreen">
+        <!-- Use Material You dynamic background color for Dark Mode -->
+        <item name="windowSplashScreenBackground">@android:color/system_neutral1_900</item>
+        <!-- Use the combined splash icon drawable -->
+        <item name="windowSplashScreenAnimatedIcon">@drawable/ic_splash</item>
+        <!-- Set the theme to switch to after the splash screen finishes -->
+        <item name="postSplashScreenTheme">@style/Theme.Chobi</item>
+    </style>
+</resources>

@@ -7,6 +7,7 @@ import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -16,6 +17,9 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusDirection
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.example.chobi.data.Category
@@ -74,6 +78,8 @@ fun AddExpenseSheet(
     systemCurrency.getSymbol(Locale.getDefault()) ?: "$"
   }
 
+  val focusManager = LocalFocusManager.current
+
   Column(
     modifier = modifier
       .fillMaxWidth()
@@ -99,7 +105,13 @@ fun AddExpenseSheet(
       onValueChange = { title = it },
       label = { Text("Title") },
       modifier = Modifier.fillMaxWidth(),
-      singleLine = true
+      singleLine = true,
+      keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
+      keyboardActions = KeyboardActions(
+        onNext = {
+          focusManager.moveFocus(FocusDirection.Down)
+        }
+      )
     )
 
     OutlinedTextField(

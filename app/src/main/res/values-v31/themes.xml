@@ -1,13 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-
+    <!-- Base application theme. -->
     <style name="Theme.Chobi" parent="android:Theme.Material.Light.NoActionBar" />
 
-    <!-- Splash Screen Starting Theme -->
+    <!-- Splash Screen Starting Theme with Material You Dynamic Colors (Light Mode) -->
     <style name="Theme.Chobi.Starting" parent="Theme.SplashScreen">
-        <!-- Set the splash screen background to white for Light Mode -->
-        <item name="windowSplashScreenBackground">#FFFFFF</item>
-        <!-- Use the application's launcher icon -->
+        <!-- Use Material You dynamic background color for Light Mode -->
+        <item name="windowSplashScreenBackground">@android:color/system_neutral1_10</item>
+        <!-- Use the combined splash icon drawable -->
         <item name="windowSplashScreenAnimatedIcon">@drawable/ic_splash</item>
         <!-- Set the theme to switch to after the splash screen finishes -->
         <item name="postSplashScreenTheme">@style/Theme.Chobi</item>

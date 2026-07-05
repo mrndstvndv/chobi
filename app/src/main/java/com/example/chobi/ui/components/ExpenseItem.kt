@@ -51,14 +51,9 @@ fun ExpenseItem(
 
   val dismissState = rememberSwipeToDismissBoxState()
 
-  LaunchedEffect(dismissState.currentValue) {
-    if (dismissState.currentValue == SwipeToDismissBoxValue.EndToStart || dismissState.currentValue == SwipeToDismissBoxValue.StartToEnd) {
-      onDelete()
-    }
-  }
-
   SwipeToDismissBox(
     state = dismissState,
+    onDismiss = { value -> onDelete() },
     modifier = modifier.fillMaxWidth(),
     backgroundContent = {
       val direction = dismissState.dismissDirection

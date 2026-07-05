@@ -40,6 +40,12 @@ class MainScreenViewModel(private val expenseRepository: ExpenseRepository) : Vi
     }
   }
 
+  fun updateExpense(expense: Expense) {
+    viewModelScope.launch {
+      expenseRepository.insertExpense(expense)
+    }
+  }
+
   fun deleteExpense(expense: Expense) {
     viewModelScope.launch {
       expenseRepository.deleteExpense(expense)

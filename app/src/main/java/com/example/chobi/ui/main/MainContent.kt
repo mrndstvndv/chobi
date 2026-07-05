@@ -25,7 +25,8 @@ fun MainContent(
   categories: List<Category>,
   onDeleteExpense: (Expense) -> Unit,
   currencyCode: String = "USD",
-  modifier: Modifier = Modifier
+  modifier: Modifier = Modifier,
+  onExpenseLongClick: ((Expense) -> Unit)? = null
 ) {
   val totalAmount = expenses.sumOf { it.amount }
   val currencyFormatter = remember(currencyCode) {
@@ -77,12 +78,25 @@ fun MainContent(
     } else {
       groupedExpenses.forEach { (header, itemsForHeader) ->
         item(key = "header_$header") {
-          Text(
-            text = header,
-            style = MaterialTheme.typography.titleMedium,
-            color = MaterialTheme.colorScheme.primary,
-            modifier = Modifier.padding(top = 12.dp, bottom = 4.dp)
-          )
+          val dayTotal = remember(itemsForHeader) { itemsForHeader.sumOf { it.amount } }
+          Row(
+            modifier = Modifier
+              .fillMaxWidth()
+              .padding(top = 12.dp, bottom = 4.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+          ) {
+            Text(
+              text = header,
+              style = MaterialTheme.typography.titleMedium,
+              color = MaterialTheme.colorScheme.primary
+            )
+            Text(
+              text = currencyFormatter.format(dayTotal),
+              style = MaterialTheme.typography.titleMedium,
+              color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+          }
         }
         items(itemsForHeader, key = { it.id }) { expense ->
           val matchingCategory = categories.firstOrNull { it.name.lowercase() == expense.category.lowercase() }
@@ -90,7 +104,8 @@ fun MainContent(
             expense = expense,
             category = matchingCategory,
             onDelete = { onDeleteExpense(expense) },
-            currencyFormatter = currencyFormatter
+            currencyFormatter = currencyFormatter,
+            onLongClick = { onExpenseLongClick?.invoke(expense) }
           )
         }
       }

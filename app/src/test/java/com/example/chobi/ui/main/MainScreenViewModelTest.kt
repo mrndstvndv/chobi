@@ -115,4 +115,39 @@ private class FakeExpenseRepository : ExpenseRepository {
       Category(id = 2, name = "Transport", iconName = "DirectionsCar", colorHex = "#2196F3")
     )
   }
+
+  override suspend fun clearAllData() {
+    _expenses.value = emptyList()
+    _categories.value = emptyList()
+  }
+
+  override suspend fun importData(categories: List<Category>, expenses: List<Expense>, overwrite: Boolean) {
+    if (overwrite) {
+      _categories.value = categories
+      _expenses.value = expenses
+    } else {
+      val existingNames = _categories.value.map { it.name.lowercase() }.toSet()
+      val newCats = _categories.value.toMutableList()
+      for (cat in categories) {
+        if (cat.name.lowercase() !in existingNames) {
+          newCats.add(cat)
+        }
+      }
+      _categories.value = newCats
+
+      val newExpenses = _expenses.value.toMutableList()
+      for (exp in expenses) {
+        val isDuplicate = _expenses.value.any {
+          it.title.lowercase() == exp.title.lowercase() &&
+          it.amount == exp.amount &&
+          it.category.lowercase() == exp.category.lowercase() &&
+          it.timestamp == exp.timestamp
+        }
+        if (!isDuplicate) {
+          newExpenses.add(exp)
+        }
+      }
+      _expenses.value = newExpenses
+    }
+  }
 }

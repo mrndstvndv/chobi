@@ -20,6 +20,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation3.runtime.NavKey
 import com.example.chobi.ChobiApplication
+import com.example.chobi.data.Expense
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import android.widget.Toast
@@ -83,6 +84,7 @@ fun MainScreen(
   val state by viewModel.uiState.collectAsStateWithLifecycle()
   var showBottomSheet by remember { mutableStateOf(false) }
   var showSettingsDialog by remember { mutableStateOf(false) }
+  var expenseToEdit by remember { mutableStateOf<Expense?>(null) }
 
   // Dialog state for importing
   var showImportConfirmDialog by remember { mutableStateOf(false) }
@@ -201,6 +203,10 @@ fun MainScreen(
           onDeleteExpense = { expense ->
             viewModel.deleteExpense(expense)
           },
+          onExpenseLongClick = { expense ->
+            expenseToEdit = expense
+            showBottomSheet = true
+          },
           currencyCode = selectedCurrencyCode,
           modifier = Modifier
             .fillMaxSize()
@@ -209,13 +215,22 @@ fun MainScreen(
 
         if (showBottomSheet) {
           ModalBottomSheet(
-            onDismissRequest = { showBottomSheet = false },
+            onDismissRequest = {
+              expenseToEdit = null
+              showBottomSheet = false
+            },
             sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
           ) {
             AddExpenseSheet(
               categories = success.categories,
+              expenseToEdit = expenseToEdit,
               onAddExpense = { title, amount, categoryName, timestamp ->
                 viewModel.addExpense(title, amount, categoryName, timestamp)
+                showBottomSheet = false
+              },
+              onUpdateExpense = { updatedExpense ->
+                viewModel.updateExpense(updatedExpense)
+                expenseToEdit = null
                 showBottomSheet = false
               },
               onAddCategory = { name, iconName, colorHex ->
@@ -227,7 +242,10 @@ fun MainScreen(
               onDeleteCategory = { category ->
                 viewModel.deleteCategory(category)
               },
-              onDismiss = { showBottomSheet = false },
+              onDismiss = {
+                expenseToEdit = null
+                showBottomSheet = false
+              },
               currencyCode = selectedCurrencyCode
             )
           }

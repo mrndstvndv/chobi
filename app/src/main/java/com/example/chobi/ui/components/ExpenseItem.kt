@@ -1,7 +1,9 @@
 package com.example.chobi.ui.components
 
 import android.icu.text.NumberFormat
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
@@ -21,20 +23,34 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun ExpenseItem(
   expense: Expense,
   category: Category?,
   onDelete: () -> Unit,
   currencyFormatter: NumberFormat,
-  modifier: Modifier = Modifier
+  modifier: Modifier = Modifier,
+  onLongClick: (() -> Unit)? = null,
+  onClick: (() -> Unit)? = null
 ) {
   val timeFormatter = remember { SimpleDateFormat("HH:mm", Locale.getDefault()) }
   val icon = category?.let { CategoryIcons.getIcon(it.iconName) } ?: Icons.Default.Star
   val iconColor = category?.colorHex?.toColor() ?: MaterialTheme.colorScheme.primary
 
+  val cardModifier = if (onLongClick != null || onClick != null) {
+    modifier
+      .fillMaxWidth()
+      .combinedClickable(
+        onClick = { onClick?.invoke() },
+        onLongClick = { onLongClick?.invoke() }
+      )
+  } else {
+    modifier.fillMaxWidth()
+  }
+
   Card(
-    modifier = modifier.fillMaxWidth(),
+    modifier = cardModifier,
     colors = CardDefaults.cardColors(
       containerColor = MaterialTheme.colorScheme.surface
     ),

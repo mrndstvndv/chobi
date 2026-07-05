@@ -20,6 +20,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.example.chobi.data.Category
 import com.example.chobi.data.CategoryIcons
+import com.example.chobi.data.Expense
 import com.example.chobi.ui.components.CategoryDialog
 import com.example.chobi.ui.components.toColor
 import java.text.SimpleDateFormat
@@ -36,17 +37,25 @@ fun AddExpenseSheet(
   onDeleteCategory: (Category) -> Unit,
   onDismiss: () -> Unit,
   currencyCode: String = "USD",
-  modifier: Modifier = Modifier
+  modifier: Modifier = Modifier,
+  expenseToEdit: Expense? = null,
+  onUpdateExpense: ((Expense) -> Unit)? = null
 ) {
-  var title by remember { mutableStateOf("") }
-  var amountStr by remember { mutableStateOf("") }
-  var selectedCategoryName by remember(categories) {
-    mutableStateOf(categories.firstOrNull()?.name ?: "Food")
+  var title by remember(expenseToEdit) { mutableStateOf(expenseToEdit?.title ?: "") }
+  var amountStr by remember(expenseToEdit) {
+    mutableStateOf(
+      expenseToEdit?.amount?.let {
+        if (it % 1.0 == 0.0) it.toInt().toString() else it.toString()
+      } ?: ""
+    )
+  }
+  var selectedCategoryName by remember(expenseToEdit, categories) {
+    mutableStateOf(expenseToEdit?.category ?: categories.firstOrNull()?.name ?: "Food")
   }
   var showAddCategoryDialog by remember { mutableStateOf(false) }
   var editingCategory by remember { mutableStateOf<Category?>(null) }
 
-  var selectedTimestamp by remember { mutableStateOf(System.currentTimeMillis()) }
+  var selectedTimestamp by remember(expenseToEdit) { mutableStateOf(expenseToEdit?.timestamp ?: System.currentTimeMillis()) }
   var showDatePicker by remember { mutableStateOf(false) }
   val dateFormatter = remember { SimpleDateFormat("MMM dd, yyyy", Locale.getDefault()) }
 
@@ -80,7 +89,7 @@ fun AddExpenseSheet(
       verticalAlignment = Alignment.CenterVertically
     ) {
       Text(
-        text = "New Expense",
+        text = if (expenseToEdit != null) "Edit Expense" else "New Expense",
         style = MaterialTheme.typography.headlineSmall
       )
     }
@@ -217,7 +226,12 @@ fun AddExpenseSheet(
         onClick = {
           val amt = amountStr.toDoubleOrNull() ?: 0.0
           if (title.isNotBlank() && amt > 0.0) {
-            onAddExpense(title, amt, selectedCategoryName, selectedTimestamp)
+            val exp = expenseToEdit
+            if (exp != null) {
+              onUpdateExpense?.invoke(exp.copy(title = title, amount = amt, category = selectedCategoryName, timestamp = selectedTimestamp))
+            } else {
+              onAddExpense(title, amt, selectedCategoryName, selectedTimestamp)
+            }
           }
         },
         enabled = title.isNotBlank() && (amountStr.toDoubleOrNull() ?: 0.0) > 0.0,

@@ -33,7 +33,8 @@ fun SummaryCard(
         color = MaterialTheme.colorScheme.onPrimary
       )
       Spacer(modifier = Modifier.height(8.dp))
-      Text(
+      OdometerText(
+        amount = totalAmount,
         text = currencyFormatter.format(totalAmount),
         style = MaterialTheme.typography.headlineLarge,
         color = MaterialTheme.colorScheme.onPrimary

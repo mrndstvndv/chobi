@@ -11,47 +11,25 @@ on:
         options:
           - apk
           - aab
-          - both
-      version_name:
-        description: "Version name (e.g. 1.0.0)"
-        required: false
-        type: string
-      version_code:
-        description: "Version code (e.g. 2)"
-        required: false
-        type: number
 
-# Secrets required (set in repo settings):
-#   KEYSTORE_BASE64  - base64-encoded release.jks
-#   KEYSTORE_PASS    - keystore password
-#   KEY_ALIAS        - key alias
-#   KEY_PASS         - key password
+env:
+  KEYSTORE_FILE: app/release.jks
+  PROPERTIES_FILE: keystore.properties
 
 jobs:
   build:
     runs-on: ubuntu-latest
-    env:
-      KEYSTORE_FILE: app/release.jks
-      PROPERTIES_FILE: keystore.properties
-
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Set up JDK 17
-        uses: actions/setup-java@v4
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
         with:
           java-version: 17
           distribution: temurin
 
-      - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v4
-
       - name: Decode keystore
-        run: |
-          echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > app/release.jks
+        run: echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > app/release.jks
 
-      - name: Write keystore properties
+      - name: Write properties
         run: |
           cat > keystore.properties << EOF
           storeFile=app/release.jks
@@ -60,54 +38,26 @@ jobs:
           keyPassword=${{ secrets.KEY_PASS }}
           EOF
 
-      - name: Override version (optional)
-        if: inputs.version_name != '' || inputs.version_code != ''
-        run: |
-          ARGS=""
-          if [ -n "${{ inputs.version_name }}" ]; then
-            ARGS="$ARGS -PversionName=${{ inputs.version_name }}"
-          fi
-          if [ -n "${{ inputs.version_code }}" ]; then
-            ARGS="$ARGS -PversionCode=${{ inputs.version_code }}"
-          fi
-          echo "VERSION_ARGS=$ARGS" >> $GITHUB_ENV
-
       - name: Build APK
-        if: inputs.build_type == 'apk' || inputs.build_type == 'both'
-        run: ./gradlew assembleRelease $VERSION_ARGS
+        if: inputs.build_type == 'apk' || inputs.build_type == 'aab'
+        run: ./gradlew assembleRelease
 
-      - name: Build AAB
-        if: inputs.build_type == 'aab' || inputs.build_type == 'both'
-        run: ./gradlew bundleRelease $VERSION_ARGS
-
-      - name: Upload APK artifact
-        if: inputs.build_type == 'apk' || inputs.build_type == 'both'
+      - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: chobi-release-apk
           path: app/build/outputs/apk/release/*.apk
-          if-no-files-found: error
 
-      - name: Upload AAB artifact
-        if: inputs.build_type == 'aab' || inputs.build_type == 'both'
+      - name: Upload AAB
         uses: actions/upload-artifact@v4
         with:
           name: chobi-release-aab
           path: app/build/outputs/bundle/release/*.aab
-          if-no-files-found: error
 
-      - name: Upload mapping artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: chobi-release-mapping
-          path: app/build/outputs/mapping/release/mapping.txt
-          if-no-files-found: warn
-
-      - name: Upload keystore artifact
+      - name: Upload credentials
         uses: actions/upload-artifact@v4
         with:
           name: chobi-signing-credentials
           path: |
             app/release.jks
             keystore.properties
-          if-no-files-found: error

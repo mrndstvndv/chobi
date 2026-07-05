@@ -1,6 +1,7 @@
 package com.example.chobi.data
 
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
 
 interface ExpenseRepository {
     fun getAllExpenses(): Flow<List<Expense>>
@@ -12,6 +13,8 @@ interface ExpenseRepository {
     suspend fun updateCategory(category: Category, oldName: String)
     suspend fun deleteCategory(category: Category)
     suspend fun prepopulateDefaultCategories()
+    suspend fun clearAllData()
+    suspend fun importData(categories: List<Category>, expenses: List<Expense>, overwrite: Boolean)
 }
 
 class DefaultExpenseRepository(
@@ -55,6 +58,45 @@ class DefaultExpenseRepository(
         )
         for (category in defaults) {
             categoryDao.insertCategory(category)
+        }
+    }
+
+    override suspend fun clearAllData() {
+        expenseDao.deleteAllExpenses()
+        categoryDao.deleteAllCategories()
+    }
+
+    override suspend fun importData(categories: List<Category>, expenses: List<Expense>, overwrite: Boolean) {
+        if (overwrite) {
+            clearAllData()
+            for (cat in categories) {
+                categoryDao.insertCategory(cat.copy(id = 0))
+            }
+            for (exp in expenses) {
+                expenseDao.insertExpense(exp.copy(id = 0))
+            }
+        } else {
+            // Merge mode
+            val existingCats = categoryDao.getAllCategories().first()
+            val existingNames = existingCats.map { it.name.lowercase() }.toSet()
+            for (cat in categories) {
+                if (cat.name.lowercase() !in existingNames) {
+                    categoryDao.insertCategory(cat.copy(id = 0))
+                }
+            }
+
+            val existingExpenses = expenseDao.getAllExpenses().first()
+            for (exp in expenses) {
+                val isDuplicate = existingExpenses.any {
+                    it.title.lowercase() == exp.title.lowercase() &&
+                    it.amount == exp.amount &&
+                    it.category.lowercase() == exp.category.lowercase() &&
+                    it.timestamp == exp.timestamp
+                }
+                if (!isDuplicate) {
+                    expenseDao.insertExpense(exp.copy(id = 0))
+                }
+            }
         }
     }
 }

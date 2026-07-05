@@ -24,4 +24,7 @@ interface ExpenseDao {
 
     @Query("UPDATE expenses SET category = :newCategoryName WHERE category = :oldCategoryName")
     suspend fun updateExpenseCategory(oldCategoryName: String, newCategoryName: String)
+
+    @Query("DELETE FROM expenses")
+    suspend fun deleteAllExpenses()
 }

@@ -34,6 +34,12 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation3.runtime.NavKey
 import com.example.chobi.ChobiApplication
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Warning
+import android.widget.Toast
+
 import com.example.chobi.data.Category
 import com.example.chobi.data.CategoryIcons
 import com.example.chobi.data.getGroupHeader
@@ -43,6 +49,10 @@ import android.icu.text.NumberFormat
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+
+enum class ImportType {
+  JSON, SQLITE
+}
 
 // Helper to convert hex string to Compose Color
 fun String.toColor(): Color {
@@ -59,17 +69,94 @@ fun MainScreen(
   onItemClick: (NavKey) -> Unit,
   modifier: Modifier = Modifier,
 ) {
-  val context = LocalContext.current.applicationContext as ChobiApplication
+  val context = LocalContext.current
+  val app = context.applicationContext as ChobiApplication
   val viewModel: MainScreenViewModel = viewModel {
-    MainScreenViewModel(context.expenseRepository)
+    MainScreenViewModel(app.expenseRepository)
   }
   val state by viewModel.uiState.collectAsStateWithLifecycle()
   var showBottomSheet by remember { mutableStateOf(false) }
-  
+  var showSettingsDialog by remember { mutableStateOf(false) }
+
+  // Dialog state for importing
+  var showImportConfirmDialog by remember { mutableStateOf(false) }
+  var selectedImportUri by remember { mutableStateOf<android.net.Uri?>(null) }
+  var importType by remember { mutableStateOf<ImportType?>(null) }
+  var importOverwrite by remember { mutableStateOf(false) }
+
+  val successState = state as? MainScreenUiState.Success
+  val currentCategories = successState?.categories ?: emptyList()
+  val currentExpenses = successState?.expenses ?: emptyList()
+
+  val exportJsonLauncher = rememberLauncherForActivityResult(
+    contract = ActivityResultContracts.CreateDocument("application/json")
+  ) { uri ->
+    if (uri != null) {
+      viewModel.exportDataToJson(
+        context = context,
+        uri = uri,
+        categories = currentCategories,
+        expenses = currentExpenses,
+        onSuccess = {
+          Toast.makeText(context, "Data exported successfully", Toast.LENGTH_SHORT).show()
+        },
+        onError = { error ->
+          Toast.makeText(context, "Export failed: ${error.message}", Toast.LENGTH_LONG).show()
+        }
+      )
+    }
+  }
+
+  val importJsonLauncher = rememberLauncherForActivityResult(
+    contract = ActivityResultContracts.OpenDocument()
+  ) { uri ->
+    if (uri != null) {
+      selectedImportUri = uri
+      importType = ImportType.JSON
+      importOverwrite = false
+      showImportConfirmDialog = true
+    }
+  }
+
+  val exportDbLauncher = rememberLauncherForActivityResult(
+    contract = ActivityResultContracts.CreateDocument("application/octet-stream")
+  ) { uri ->
+    if (uri != null) {
+      viewModel.exportRawDb(
+        context = context,
+        uri = uri,
+        onSuccess = {
+          Toast.makeText(context, "Database exported successfully", Toast.LENGTH_SHORT).show()
+        },
+        onError = { error ->
+          Toast.makeText(context, "Database export failed: ${error.message}", Toast.LENGTH_LONG).show()
+        }
+      )
+    }
+  }
+
+  val importDbLauncher = rememberLauncherForActivityResult(
+    contract = ActivityResultContracts.OpenDocument()
+  ) { uri ->
+    if (uri != null) {
+      selectedImportUri = uri
+      importType = ImportType.SQLITE
+      showImportConfirmDialog = true
+    }
+  }
+
   Scaffold(
     topBar = {
       TopAppBar(
         title = { Text("Expense Tracker", style = MaterialTheme.typography.titleLarge) },
+        actions = {
+          IconButton(onClick = { showSettingsDialog = true }) {
+            Icon(
+              imageVector = Icons.Default.Settings,
+              contentDescription = "Settings & Backup"
+            )
+          }
+        },
         colors = TopAppBarDefaults.topAppBarColors(
           containerColor = Color.Transparent,
           titleContentColor = MaterialTheme.colorScheme.onSurface
@@ -101,10 +188,10 @@ fun MainScreen(
         }
       }
       is MainScreenUiState.Success -> {
-        val successState = state as MainScreenUiState.Success
+        val success = state as MainScreenUiState.Success
         MainContent(
-          expenses = successState.expenses,
-          categories = successState.categories,
+          expenses = success.expenses,
+          categories = success.categories,
           onDeleteExpense = { expense ->
             viewModel.deleteExpense(expense)
           },
@@ -119,7 +206,7 @@ fun MainScreen(
             sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
           ) {
             AddExpenseSheet(
-              categories = successState.categories,
+              categories = success.categories,
               onAddExpense = { title, amount, categoryName, timestamp ->
                 viewModel.addExpense(title, amount, categoryName, timestamp)
                 showBottomSheet = false
@@ -149,6 +236,302 @@ fun MainScreen(
         }
       }
     }
+  }
+
+  // Settings Dialog
+  if (showSettingsDialog) {
+    AlertDialog(
+      onDismissRequest = { showSettingsDialog = false },
+      title = {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+          Icon(
+            imageVector = Icons.Default.Settings,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.size(28.dp)
+          )
+          Spacer(modifier = Modifier.width(12.dp))
+          Text("Settings & Database")
+        }
+      },
+      text = {
+        Column(
+          modifier = Modifier
+            .fillMaxWidth()
+            .verticalScroll(rememberScrollState()),
+          verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+          Text(
+            text = "Backup, restore, or transfer your categories and expenses data.",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+          )
+          
+          HorizontalDivider()
+
+          // JSON BACKUP SECTION
+          Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text(
+              text = "Data Backup (JSON)",
+              style = MaterialTheme.typography.titleMedium,
+              color = MaterialTheme.colorScheme.primary
+            )
+            Text(
+              text = "Safe format. Exports categories (including custom ones) and expenses. Allows merging or overwriting.",
+              style = MaterialTheme.typography.bodySmall,
+              color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Row(
+              modifier = Modifier.fillMaxWidth(),
+              horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+              Button(
+                onClick = {
+                  showSettingsDialog = false
+                  exportJsonLauncher.launch("chobi_backup.json")
+                },
+                modifier = Modifier.weight(1f)
+              ) {
+                Text("Export JSON")
+              }
+              OutlinedButton(
+                onClick = {
+                  showSettingsDialog = false
+                  importJsonLauncher.launch(arrayOf("application/json"))
+                },
+                modifier = Modifier.weight(1f)
+              ) {
+                Text("Import JSON")
+              }
+            }
+          }
+
+          HorizontalDivider()
+
+          // SQLITE DB SECTION
+          Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text(
+              text = "Database File (SQLite)",
+              style = MaterialTheme.typography.titleMedium,
+              color = MaterialTheme.colorScheme.primary
+            )
+            Text(
+              text = "Extracts/restores raw database file. Importing replaces all data and closes/restarts the application.",
+              style = MaterialTheme.typography.bodySmall,
+              color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Row(
+              modifier = Modifier.fillMaxWidth(),
+              horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+              Button(
+                onClick = {
+                  showSettingsDialog = false
+                  exportDbLauncher.launch("expense_database.db")
+                },
+                modifier = Modifier.weight(1f)
+              ) {
+                Text("Export DB")
+              }
+              OutlinedButton(
+                onClick = {
+                  showSettingsDialog = false
+                  importDbLauncher.launch(arrayOf("*/*"))
+                },
+                modifier = Modifier.weight(1f)
+              ) {
+                Text("Import DB")
+              }
+            }
+          }
+        }
+      },
+      confirmButton = {
+        TextButton(onClick = { showSettingsDialog = false }) {
+          Text("Close")
+        }
+      }
+    )
+  }
+
+  // Import Confirmation Dialog
+  if (showImportConfirmDialog && selectedImportUri != null) {
+    val uri = selectedImportUri!!
+    val type = importType!!
+    
+    AlertDialog(
+      onDismissRequest = {
+        showImportConfirmDialog = false
+        selectedImportUri = null
+        importType = null
+      },
+      title = {
+        Text(
+          text = if (type == ImportType.JSON) "Import Backup Options" else "Confirm DB Restore"
+        )
+      },
+      text = {
+        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+          if (type == ImportType.JSON) {
+            Text(
+              text = "Select how you would like to import the categories and expenses from the JSON file:",
+              style = MaterialTheme.typography.bodyMedium
+            )
+            
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+              Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier
+                  .fillMaxWidth()
+                  .clickable { importOverwrite = false }
+                  .padding(vertical = 4.dp)
+              ) {
+                RadioButton(
+                  selected = !importOverwrite,
+                  onClick = { importOverwrite = false }
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Column {
+                  Text("Merge with existing data", style = MaterialTheme.typography.bodyLarge)
+                  Text("Keeps current entries and adds any new categories or expenses.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+              }
+              
+              Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier
+                  .fillMaxWidth()
+                  .clickable { importOverwrite = true }
+                  .padding(vertical = 4.dp)
+              ) {
+                RadioButton(
+                  selected = importOverwrite,
+                  onClick = { importOverwrite = true }
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Column {
+                  Text("Overwrite / Replace data", style = MaterialTheme.typography.bodyLarge)
+                  Text("Deletes all existing categories and expenses first, then loads the backup.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+              }
+            }
+            
+            if (importOverwrite) {
+              Spacer(modifier = Modifier.height(8.dp))
+              Card(
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer)
+              ) {
+                Row(
+                  modifier = Modifier.padding(12.dp),
+                  verticalAlignment = Alignment.CenterVertically
+                ) {
+                  Icon(
+                    imageVector = Icons.Default.Warning,
+                    contentDescription = "Warning",
+                    tint = MaterialTheme.colorScheme.onErrorContainer
+                  )
+                  Spacer(modifier = Modifier.width(8.dp))
+                  Text(
+                    text = "Warning: Overwriting will delete all current expenses and categories. This cannot be undone.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onErrorContainer
+                  )
+                }
+              }
+            }
+          } else {
+            Text(
+              text = "You are restoring a raw database file. This will completely replace the current database files on disk.",
+              style = MaterialTheme.typography.bodyMedium
+            )
+            Card(
+              colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer)
+            ) {
+              Row(
+                modifier = Modifier.padding(12.dp),
+                verticalAlignment = Alignment.CenterVertically
+              ) {
+                Icon(
+                  imageVector = Icons.Default.Warning,
+                  contentDescription = "Warning",
+                  tint = MaterialTheme.colorScheme.onErrorContainer
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                  text = "Crucial: All current data will be erased immediately. The application will close to apply the backup.",
+                  style = MaterialTheme.typography.bodySmall,
+                  color = MaterialTheme.colorScheme.onErrorContainer
+                )
+              }
+            }
+          }
+        }
+      },
+      confirmButton = {
+        Button(
+          onClick = {
+            showImportConfirmDialog = false
+            if (type == ImportType.JSON) {
+              viewModel.importDataFromJson(
+                context = context,
+                uri = uri,
+                overwrite = importOverwrite,
+                onSuccess = {
+                  Toast.makeText(context, "Data imported successfully", Toast.LENGTH_SHORT).show()
+                  selectedImportUri = null
+                  importType = null
+                },
+                onError = { error ->
+                  Toast.makeText(context, "Import failed: ${error.message}", Toast.LENGTH_LONG).show()
+                  selectedImportUri = null
+                  importType = null
+                }
+              )
+            } else {
+              viewModel.importRawDb(
+                context = context,
+                uri = uri,
+                onSuccess = {
+                  Toast.makeText(context, "Database restored. Restarting...", Toast.LENGTH_SHORT).show()
+                  android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
+                    android.os.Process.killProcess(android.os.Process.myPid())
+                  }, 1500)
+                },
+                onError = { error ->
+                  Toast.makeText(context, "Database restore failed: ${error.message}", Toast.LENGTH_LONG).show()
+                  selectedImportUri = null
+                  importType = null
+                }
+              )
+            }
+          },
+          colors = if (importOverwrite || type == ImportType.SQLITE) {
+            ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+          } else {
+            ButtonDefaults.buttonColors()
+          }
+        ) {
+          Text(
+            text = if (type == ImportType.JSON) {
+              if (importOverwrite) "Overwrite & Import" else "Import (Merge)"
+            } else {
+              "Restore & Restart"
+            }
+          )
+        }
+      },
+      dismissButton = {
+        TextButton(
+          onClick = {
+            showImportConfirmDialog = false
+            selectedImportUri = null
+            importType = null
+          }
+        ) {
+          Text("Cancel")
+        }
+      }
+    )
   }
 }
 

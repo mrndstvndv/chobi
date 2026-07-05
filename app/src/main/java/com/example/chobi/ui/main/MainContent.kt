@@ -25,6 +25,7 @@ fun MainContent(
   categories: List<Category>,
   onDeleteExpense: (Expense) -> Unit,
   currencyCode: String = "USD",
+  timeFormatPreference: String = "auto",
   modifier: Modifier = Modifier,
   onExpenseLongClick: ((Expense) -> Unit)? = null
 ) {
@@ -45,8 +46,8 @@ fun MainContent(
   }
 
   LazyColumn(
-    modifier = modifier.padding(horizontal = 16.dp),
-    verticalArrangement = Arrangement.spacedBy(12.dp)
+    modifier = modifier,
+    verticalArrangement = Arrangement.spacedBy(4.dp)
   ) {
     // Summary Card
     item {
@@ -56,7 +57,7 @@ fun MainContent(
         currencyFormatter = currencyFormatter,
         modifier = Modifier
           .fillMaxWidth()
-          .padding(top = 16.dp, bottom = 8.dp)
+          .padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 8.dp)
       )
     }
 
@@ -65,7 +66,7 @@ fun MainContent(
         Box(
           modifier = Modifier
             .fillMaxWidth()
-            .padding(48.dp),
+            .padding(horizontal = 16.dp, vertical = 48.dp),
           contentAlignment = Alignment.Center
         ) {
           Text(
@@ -82,7 +83,7 @@ fun MainContent(
           Row(
             modifier = Modifier
               .fillMaxWidth()
-              .padding(top = 12.dp, bottom = 4.dp),
+              .padding(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 4.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
           ) {
@@ -105,6 +106,7 @@ fun MainContent(
             category = matchingCategory,
             onDelete = { onDeleteExpense(expense) },
             currencyFormatter = currencyFormatter,
+            timeFormatPreference = timeFormatPreference,
             onLongClick = { onExpenseLongClick?.invoke(expense) }
           )
         }

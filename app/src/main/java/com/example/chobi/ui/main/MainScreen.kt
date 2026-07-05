@@ -56,6 +56,7 @@ fun isValidCurrencyCode(code: String): Boolean {
 
 val android.content.Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "chobi_settings")
 val CURRENCY_KEY = stringPreferencesKey("currency_code")
+val TIME_FORMAT_KEY = stringPreferencesKey("time_format")
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -76,6 +77,13 @@ fun MainScreen(
     }
   }
   val selectedCurrencyCode by currencyFlow.collectAsStateWithLifecycle(initialValue = "USD")
+
+  val timeFormatFlow = remember(context) {
+    context.dataStore.data.map { preferences ->
+      preferences[TIME_FORMAT_KEY] ?: "auto"
+    }
+  }
+  val selectedTimeFormat by timeFormatFlow.collectAsStateWithLifecycle(initialValue = "auto")
 
   val app = context.applicationContext as ChobiApplication
   val viewModel: MainScreenViewModel = viewModel {
@@ -208,6 +216,7 @@ fun MainScreen(
             showBottomSheet = true
           },
           currencyCode = selectedCurrencyCode,
+          timeFormatPreference = selectedTimeFormat,
           modifier = Modifier
             .fillMaxSize()
             .padding(paddingValues)
@@ -379,6 +388,77 @@ fun MainScreen(
                         }
                       }
                       expandedCurrencyDropdown = false
+                    }
+                  )
+                }
+              }
+            }
+          }
+
+          HorizontalDivider()
+
+          // TIME FORMAT SECTION
+          Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text(
+              text = "Time Format Preference",
+              style = MaterialTheme.typography.titleMedium,
+              color = MaterialTheme.colorScheme.primary
+            )
+            Text(
+              text = "Choose whether to display 12-hour time, 24-hour time, or use system defaults.",
+              style = MaterialTheme.typography.bodySmall,
+              color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            
+            var expandedTimeDropdown by remember { mutableStateOf(false) }
+            val timeOptions = listOf(
+              "auto" to "Auto (System default)",
+              "12h" to "12-hour format (e.g., 1:30 PM)",
+              "24h" to "24-hour format (e.g., 13:30)"
+            )
+            
+            val selectedOptionName = remember(selectedTimeFormat) {
+              timeOptions.firstOrNull { it.first == selectedTimeFormat }?.second ?: "Auto (System default)"
+            }
+            
+            Box(modifier = Modifier.fillMaxWidth()) {
+              OutlinedTextField(
+                value = selectedOptionName,
+                onValueChange = {},
+                readOnly = true,
+                label = { Text("Time Format") },
+                trailingIcon = {
+                  IconButton(onClick = { expandedTimeDropdown = !expandedTimeDropdown }) {
+                    Icon(
+                      imageVector = Icons.Default.ArrowDropDown,
+                      contentDescription = "Select Time Format"
+                    )
+                  }
+                },
+                modifier = Modifier.fillMaxWidth()
+              )
+              
+              Box(
+                modifier = Modifier
+                  .matchParentSize()
+                  .clickable { expandedTimeDropdown = !expandedTimeDropdown }
+              )
+              
+              DropdownMenu(
+                expanded = expandedTimeDropdown,
+                onDismissRequest = { expandedTimeDropdown = false },
+                modifier = Modifier.fillMaxWidth(0.7f)
+              ) {
+                timeOptions.forEach { (formatCode, displayName) ->
+                  DropdownMenuItem(
+                    text = { Text(displayName) },
+                    onClick = {
+                      coroutineScope.launch {
+                        context.dataStore.edit { preferences ->
+                          preferences[TIME_FORMAT_KEY] = formatCode
+                        }
+                      }
+                      expandedTimeDropdown = false
                     }
                   )
                 }

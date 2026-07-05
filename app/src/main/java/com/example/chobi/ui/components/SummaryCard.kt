@@ -27,15 +27,22 @@ fun SummaryCard(
         .padding(24.dp),
       horizontalAlignment = Alignment.CenterHorizontally
     ) {
+      val isNetIncome = totalAmount < 0
+      val titleText = if (isNetIncome) {
+        "Net Income ($currencyCode)"
+      } else {
+        "Total Expenses ($currencyCode)"
+      }
+      val absAmount = kotlin.math.abs(totalAmount)
       Text(
-        text = "Total Expenses ($currencyCode)",
+        text = titleText,
         style = MaterialTheme.typography.titleMedium,
         color = MaterialTheme.colorScheme.onPrimary
       )
       Spacer(modifier = Modifier.height(8.dp))
       OdometerText(
-        amount = totalAmount,
-        text = currencyFormatter.format(totalAmount),
+        amount = absAmount,
+        text = currencyFormatter.format(absAmount),
         style = MaterialTheme.typography.headlineLarge,
         color = MaterialTheme.colorScheme.onPrimary
       )

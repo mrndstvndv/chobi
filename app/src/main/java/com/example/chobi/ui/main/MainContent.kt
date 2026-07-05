@@ -92,10 +92,21 @@ fun MainContent(
               style = MaterialTheme.typography.titleMedium,
               color = MaterialTheme.colorScheme.primary
             )
+            val isDayIncome = dayTotal < 0
+            val dayDisplay = if (isDayIncome) {
+              "+" + currencyFormatter.format(kotlin.math.abs(dayTotal))
+            } else {
+              currencyFormatter.format(dayTotal)
+            }
+            val dayColor = if (isDayIncome) {
+              androidx.compose.ui.graphics.Color(0xFF2E7D32)
+            } else {
+              MaterialTheme.colorScheme.onSurfaceVariant
+            }
             Text(
-              text = currencyFormatter.format(dayTotal),
+              text = dayDisplay,
               style = MaterialTheme.typography.titleMedium,
-              color = MaterialTheme.colorScheme.onSurfaceVariant
+              color = dayColor
             )
           }
         }

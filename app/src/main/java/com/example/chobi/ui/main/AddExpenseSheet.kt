@@ -18,15 +18,19 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusDirection
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import com.example.chobi.data.Category
 import com.example.chobi.data.CategoryIcons
 import com.example.chobi.data.Expense
 import com.example.chobi.ui.components.CategoryDialog
 import com.example.chobi.ui.components.toColor
+import com.example.chobi.ui.components.PillSegmentedControl
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -49,9 +53,13 @@ fun AddExpenseSheet(
   var amountStr by remember(expenseToEdit) {
     mutableStateOf(
       expenseToEdit?.amount?.let {
-        if (it % 1.0 == 0.0) it.toInt().toString() else it.toString()
+        val absAmt = kotlin.math.abs(it)
+        if (absAmt % 1.0 == 0.0) absAmt.toInt().toString() else absAmt.toString()
       } ?: ""
     )
+  }
+  var isIncome by remember(expenseToEdit) {
+    mutableStateOf(expenseToEdit?.let { it.amount < 0 } ?: false)
   }
   var selectedCategoryName by remember(expenseToEdit, categories) {
     mutableStateOf(expenseToEdit?.category ?: categories.firstOrNull()?.name ?: "Food")
@@ -79,6 +87,12 @@ fun AddExpenseSheet(
   }
 
   val focusManager = LocalFocusManager.current
+  val focusRequester = remember { FocusRequester() }
+
+  LaunchedEffect(Unit) {
+    kotlinx.coroutines.delay(250)
+    focusRequester.requestFocus()
+  }
 
   Column(
     modifier = modifier
@@ -89,22 +103,34 @@ fun AddExpenseSheet(
       .padding(horizontal = 24.dp, vertical = 16.dp),
     verticalArrangement = Arrangement.spacedBy(16.dp)
   ) {
-    Row(
-      modifier = Modifier.fillMaxWidth(),
-      horizontalArrangement = Arrangement.Start,
-      verticalAlignment = Alignment.CenterVertically
-    ) {
-      Text(
-        text = if (expenseToEdit != null) "Edit Expense" else "New Expense",
-        style = MaterialTheme.typography.headlineSmall
-      )
-    }
-
-    OutlinedTextField(
+    TextField(
       value = title,
       onValueChange = { title = it },
-      label = { Text("Title") },
-      modifier = Modifier.fillMaxWidth(),
+      textStyle = MaterialTheme.typography.headlineMedium.copy(
+        fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold,
+        color = MaterialTheme.colorScheme.onSurface
+      ),
+      placeholder = {
+        Text(
+          text = if (expenseToEdit != null) "Edit Transaction" else "New Transaction",
+          style = MaterialTheme.typography.headlineMedium,
+          color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+          fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold
+        )
+      },
+      colors = TextFieldDefaults.colors(
+        focusedContainerColor = Color.Transparent,
+        unfocusedContainerColor = Color.Transparent,
+        disabledContainerColor = Color.Transparent,
+        errorContainerColor = Color.Transparent,
+        focusedIndicatorColor = Color.Transparent,
+        unfocusedIndicatorColor = Color.Transparent,
+        disabledIndicatorColor = Color.Transparent
+      ),
+      modifier = Modifier
+        .fillMaxWidth()
+        .padding(horizontal = 0.dp)
+        .focusRequester(focusRequester),
       singleLine = true,
       keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
       keyboardActions = KeyboardActions(
@@ -122,6 +148,19 @@ fun AddExpenseSheet(
       keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
       modifier = Modifier.fillMaxWidth(),
       singleLine = true
+    )
+
+    PillSegmentedControl(
+      options = listOf("-", "+"),
+      selectedOption = if (isIncome) "+" else "-",
+      onOptionSelected = { option ->
+        isIncome = option == "+"
+      },
+      showCheckmark = false,
+      textStyle = MaterialTheme.typography.titleLarge.copy(
+        fontWeight = androidx.compose.ui.text.font.FontWeight.Bold
+      ),
+      modifier = Modifier.fillMaxWidth()
     )
 
     Box(
@@ -238,11 +277,12 @@ fun AddExpenseSheet(
         onClick = {
           val amt = amountStr.toDoubleOrNull() ?: 0.0
           if (title.isNotBlank() && amt > 0.0) {
+            val finalAmt = if (isIncome) -amt else amt
             val exp = expenseToEdit
             if (exp != null) {
-              onUpdateExpense?.invoke(exp.copy(title = title, amount = amt, category = selectedCategoryName, timestamp = selectedTimestamp))
+              onUpdateExpense?.invoke(exp.copy(title = title, amount = finalAmt, category = selectedCategoryName, timestamp = selectedTimestamp))
             } else {
-              onAddExpense(title, amt, selectedCategoryName, selectedTimestamp)
+              onAddExpense(title, finalAmt, selectedCategoryName, selectedTimestamp)
             }
           }
         },

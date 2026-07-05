@@ -136,10 +136,21 @@ fun ExpenseItem(
             )
           }
         }
+        val isIncome = expense.amount < 0
+        val displayAmount = if (isIncome) {
+          "+" + currencyFormatter.format(kotlin.math.abs(expense.amount))
+        } else {
+          currencyFormatter.format(expense.amount)
+        }
+        val amountColor = if (isIncome) {
+          Color(0xFF2E7D32) // Nice green color for income/funds
+        } else {
+          MaterialTheme.colorScheme.primary
+        }
         Text(
-          text = currencyFormatter.format(expense.amount),
+          text = displayAmount,
           style = MaterialTheme.typography.titleLarge,
-          color = MaterialTheme.colorScheme.primary
+          color = amountColor
         )
       }
     }

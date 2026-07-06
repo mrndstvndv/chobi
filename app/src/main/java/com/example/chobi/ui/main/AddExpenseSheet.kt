@@ -36,7 +36,7 @@ import com.example.chobi.data.CategoryIcons
 import com.example.chobi.data.Expense
 import com.example.chobi.ui.components.CategoryDialog
 import com.example.chobi.ui.components.toColor
-import com.example.chobi.ui.components.PillSegmentedControl
+
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -157,18 +157,32 @@ fun AddExpenseSheet(
       singleLine = true
     )
 
-    PillSegmentedControl(
-      options = listOf("-", "+"),
-      selectedOption = if (isIncome) "+" else "-",
-      onOptionSelected = { option ->
-        isIncome = option == "+"
-      },
-      showCheckmark = false,
-      textStyle = MaterialTheme.typography.titleLarge.copy(
-        fontWeight = androidx.compose.ui.text.font.FontWeight.Bold
-      ),
+    SingleChoiceSegmentedButtonRow(
       modifier = Modifier.fillMaxWidth()
-    )
+    ) {
+      SegmentedButton(
+        selected = !isIncome,
+        onClick = { isIncome = false },
+        shape = SegmentedButtonDefaults.itemShape(index = 0, count = 2),
+        label = {
+          Text(
+            text = "-",
+            fontWeight = androidx.compose.ui.text.font.FontWeight.Bold
+          )
+        }
+      )
+      SegmentedButton(
+        selected = isIncome,
+        onClick = { isIncome = true },
+        shape = SegmentedButtonDefaults.itemShape(index = 1, count = 2),
+        label = {
+          Text(
+            text = "+",
+            fontWeight = androidx.compose.ui.text.font.FontWeight.Bold
+          )
+        }
+      )
+    }
 
     Row(
       modifier = Modifier.fillMaxWidth(),

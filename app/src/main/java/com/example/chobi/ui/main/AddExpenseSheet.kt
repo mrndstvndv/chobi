@@ -203,7 +203,7 @@ fun AddExpenseSheet(
         val containerColor = if (selected) {
           MaterialTheme.colorScheme.primaryContainer
         } else {
-          MaterialTheme.colorScheme.surface
+          Color.Transparent
         }
         val contentColor = if (selected) {
           MaterialTheme.colorScheme.onPrimaryContainer
@@ -260,21 +260,33 @@ fun AddExpenseSheet(
       }
 
       // Add Custom Category Chip LAST
-      FilterChip(
-        selected = false,
-        onClick = { 
+      Surface(
+        shape = RoundedCornerShape(8.dp),
+        color = Color.Transparent,
+        contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+        modifier = Modifier.clickable {
           editingCategory = null
-          showAddCategoryDialog = true 
-        },
-        label = { Text("Add Category") },
-        leadingIcon = {
+          showAddCategoryDialog = true
+        }
+      ) {
+        Row(
+          modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+          horizontalArrangement = Arrangement.spacedBy(8.dp),
+          verticalAlignment = Alignment.CenterVertically
+        ) {
           Icon(
             imageVector = Icons.Default.Add,
             contentDescription = "Add custom category",
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.size(18.dp)
           )
+          Text(
+            text = "Add Category",
+            style = MaterialTheme.typography.labelLarge
+          )
         }
-      )
+      }
     }
 
     Row(

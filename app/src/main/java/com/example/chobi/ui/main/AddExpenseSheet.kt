@@ -10,6 +10,7 @@ import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
@@ -115,29 +116,12 @@ fun AddExpenseSheet(
       .padding(horizontal = 24.dp, vertical = 16.dp),
     verticalArrangement = Arrangement.spacedBy(16.dp)
   ) {
-    TextField(
+    BasicTextField(
       value = title,
       onValueChange = { title = it },
       textStyle = MaterialTheme.typography.headlineMedium.copy(
         fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold,
         color = MaterialTheme.colorScheme.onSurface
-      ),
-      placeholder = {
-        Text(
-          text = if (expenseToEdit != null) "Edit Transaction" else "New Transaction",
-          style = MaterialTheme.typography.headlineMedium,
-          color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
-          fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold
-        )
-      },
-      colors = TextFieldDefaults.colors(
-        focusedContainerColor = Color.Transparent,
-        unfocusedContainerColor = Color.Transparent,
-        disabledContainerColor = Color.Transparent,
-        errorContainerColor = Color.Transparent,
-        focusedIndicatorColor = Color.Transparent,
-        unfocusedIndicatorColor = Color.Transparent,
-        disabledIndicatorColor = Color.Transparent
       ),
       modifier = Modifier
         .fillMaxWidth()
@@ -149,7 +133,18 @@ fun AddExpenseSheet(
         onNext = {
           focusManager.moveFocus(FocusDirection.Down)
         }
-      )
+      ),
+      decorationBox = { innerTextField ->
+        if (title.isEmpty()) {
+          Text(
+            text = if (expenseToEdit != null) "Edit Transaction" else "New Transaction",
+            style = MaterialTheme.typography.headlineMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+            fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold
+          )
+        }
+        innerTextField()
+      }
     )
 
     OutlinedTextField(

@@ -1,13 +1,19 @@
 package com.example.chobi.ui.components
 
 import android.icu.text.NumberFormat
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.ArrowDropDown
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.remember
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -17,19 +23,28 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.example.chobi.data.Budget
 import com.example.chobi.data.Expense
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SummaryCard(
   expenses: List<Expense>,
   totalAmount: Double,
+  budgets: List<Budget>,
+  selectedBudget: Budget?,
+  onSelectBudget: (Budget?) -> Unit,
+  onNewBudgetClick: () -> Unit,
+  onDeleteBudget: (Budget) -> Unit,
   currencyCode: String,
   currencyFormatter: NumberFormat,
   modifier: Modifier = Modifier
 ) {
   val cardShape = RoundedCornerShape(topStart = 28.dp, topEnd = 12.dp, bottomStart = 12.dp, bottomEnd = 28.dp)
   val colors = CardDefaults.cardColors(containerColor = Color.Transparent)
+  var showDropdown by remember { mutableStateOf(false) }
 
   Card(
     modifier = modifier.clip(cardShape),
@@ -47,73 +62,259 @@ fun SummaryCard(
         )
         .padding(24.dp)
     ) {
-      Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
-      ) {
-        Column(
-          modifier = Modifier.weight(1f),
-          verticalArrangement = Arrangement.Center
+      Column(modifier = Modifier.fillMaxWidth()) {
+        // Top Row: Title, Dropdown and Actions
+        Row(
+          modifier = Modifier.fillMaxWidth(),
+          horizontalArrangement = Arrangement.SpaceBetween,
+          verticalAlignment = Alignment.CenterVertically
         ) {
-          val isNetIncome = totalAmount < 0
-          val titleText = if (isNetIncome) {
-            "Net Income ($currencyCode)"
-          } else {
-            "Total Expenses ($currencyCode)"
-          }
-          val absAmount = kotlin.math.abs(totalAmount)
+          Box {
+            Row(
+              modifier = Modifier
+                .clip(RoundedCornerShape(8.dp))
+                .clickable { showDropdown = true }
+                .padding(vertical = 4.dp, horizontal = 8.dp),
+              verticalAlignment = Alignment.CenterVertically
+            ) {
+              Text(
+                text = selectedBudget?.title ?: "All Expenses",
+                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                color = MaterialTheme.colorScheme.onPrimaryContainer
+              )
+              Icon(
+                imageVector = Icons.Default.ArrowDropDown,
+                contentDescription = "Switch Budget",
+                tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                modifier = Modifier.size(24.dp)
+              )
+            }
 
-          Text(
-            text = titleText,
-            style = MaterialTheme.typography.titleMedium.copy(
-              fontWeight = androidx.compose.ui.text.font.FontWeight.Medium
-            ),
-            color = MaterialTheme.colorScheme.onPrimaryContainer
-          )
-          Spacer(modifier = Modifier.height(6.dp))
-          
-          OdometerText(
-            amount = absAmount,
-            text = currencyFormatter.format(absAmount),
-            style = MaterialTheme.typography.headlineLarge.copy(
-              fontWeight = androidx.compose.ui.text.font.FontWeight.Bold
-            ),
-            color = MaterialTheme.colorScheme.onPrimaryContainer
-          )
-          Spacer(modifier = Modifier.height(10.dp))
-
-          // Transaction count badge
-          val transactionText = when (expenses.size) {
-            0 -> "No transactions"
-            1 -> "1 transaction"
-            else -> "${expenses.size} transactions"
+            DropdownMenu(
+              expanded = showDropdown,
+              onDismissRequest = { showDropdown = false }
+            ) {
+              DropdownMenuItem(
+                text = { Text("All Expenses (No Budget)") },
+                onClick = {
+                  onSelectBudget(null)
+                  showDropdown = false
+                }
+              )
+              if (budgets.isNotEmpty()) {
+                HorizontalDivider()
+                budgets.forEach { budget ->
+                  val isActive = budget.endTimestamp == null
+                  DropdownMenuItem(
+                    text = {
+                      Text(
+                        text = budget.title,
+                        fontWeight = if (isActive) FontWeight.Bold else FontWeight.Normal
+                      )
+                    },
+                    onClick = {
+                      onSelectBudget(budget)
+                      showDropdown = false
+                    }
+                  )
+                }
+              }
+              HorizontalDivider()
+              DropdownMenuItem(
+                text = { Text("+ Create New Budget") },
+                onClick = {
+                  onNewBudgetClick()
+                  showDropdown = false
+                },
+                leadingIcon = {
+                  Icon(
+                    imageVector = Icons.Default.Add,
+                    contentDescription = null
+                  )
+                }
+              )
+            }
           }
-          Surface(
-            shape = RoundedCornerShape(8.dp),
-            color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.1f),
-            modifier = Modifier.wrapContentSize()
-          ) {
-            Text(
-              text = transactionText,
-              style = MaterialTheme.typography.labelMedium.copy(
-                fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold
-              ),
-              color = MaterialTheme.colorScheme.onPrimaryContainer,
-              modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
-            )
+
+          // Delete budget button if a budget is selected
+          if (selectedBudget != null) {
+            IconButton(
+              onClick = { onDeleteBudget(selectedBudget) },
+              modifier = Modifier.size(24.dp)
+            ) {
+              Icon(
+                imageVector = Icons.Default.Delete,
+                contentDescription = "Delete Budget",
+                tint = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f),
+                modifier = Modifier.size(18.dp)
+              )
+            }
           }
         }
 
-        // Mini line trend chart on the right
-        MiniTrendChart(
-          expenses = expenses,
-          modifier = Modifier
-            .width(100.dp)
-            .height(64.dp)
-            .padding(start = 12.dp),
-          lineColor = MaterialTheme.colorScheme.onPrimaryContainer
-        )
+        Spacer(modifier = Modifier.height(12.dp))
+
+        if (selectedBudget != null) {
+          // BUDGET / WALLET VIEW
+          val limit = selectedBudget.limitAmount
+          val spent = totalAmount
+          val remaining = limit - spent
+          val ratio = if (limit > 0) spent / limit else 0.0
+          val progress = ratio.coerceIn(0.0..1.0).toFloat()
+          
+          val animatedProgress by animateFloatAsState(
+            targetValue = progress,
+            label = "progress"
+          )
+          
+          val barColor by animateColorAsState(
+            targetValue = when {
+              ratio < 0.70 -> MaterialTheme.colorScheme.primary
+              ratio < 0.90 -> Color(0xFFF57C00) // Orange Warning
+              else -> Color(0xFFD32F2F) // Red Alert
+            },
+            label = "barColor"
+          )
+
+          Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+          ) {
+            Column(modifier = Modifier.weight(1f)) {
+              Text(
+                text = if (remaining >= 0) "Remaining Balance" else "Over Budget",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
+              )
+              Spacer(modifier = Modifier.height(4.dp))
+              
+              val absRemaining = kotlin.math.abs(remaining)
+              val remainingColor = if (remaining >= 0) {
+                MaterialTheme.colorScheme.onPrimaryContainer
+              } else {
+                Color(0xFFD32F2F)
+              }
+              
+              OdometerText(
+                amount = absRemaining,
+                text = (if (remaining < 0) "-" else "") + currencyFormatter.format(absRemaining),
+                style = MaterialTheme.typography.headlineLarge.copy(
+                  fontWeight = FontWeight.Bold
+                ),
+                color = remainingColor
+              )
+            }
+
+            // Mini Trend Chart
+            MiniTrendChart(
+              expenses = expenses,
+              modifier = Modifier
+                .width(100.dp)
+                .height(54.dp)
+                .padding(start = 12.dp),
+              lineColor = MaterialTheme.colorScheme.onPrimaryContainer
+            )
+          }
+
+          Spacer(modifier = Modifier.height(16.dp))
+
+          // Progress Bar
+          LinearProgressIndicator(
+            progress = { animatedProgress },
+            modifier = Modifier
+              .fillMaxWidth()
+              .height(8.dp)
+              .clip(RoundedCornerShape(4.dp)),
+            color = barColor,
+            trackColor = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.15f)
+          )
+
+          Spacer(modifier = Modifier.height(8.dp))
+
+          // Spent & Limit Details
+          Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+          ) {
+            Text(
+              text = "Spent: ${currencyFormatter.format(spent)}",
+              style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Medium),
+              color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
+            )
+            Text(
+              text = "Limit: ${currencyFormatter.format(limit)}",
+              style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Medium),
+              color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
+            )
+          }
+        } else {
+          // GENERAL / ALL EXPENSES VIEW
+          Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+          ) {
+            Column(modifier = Modifier.weight(1f)) {
+              val isNetIncome = totalAmount < 0
+              val titleText = if (isNetIncome) {
+                "Net Income ($currencyCode)"
+              } else {
+                "Total Expenses ($currencyCode)"
+              }
+              val absAmount = kotlin.math.abs(totalAmount)
+
+              Text(
+                text = titleText,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
+              )
+              Spacer(modifier = Modifier.height(6.dp))
+              
+              OdometerText(
+                amount = absAmount,
+                text = currencyFormatter.format(absAmount),
+                style = MaterialTheme.typography.headlineLarge.copy(
+                  fontWeight = FontWeight.Bold
+                ),
+                color = MaterialTheme.colorScheme.onPrimaryContainer
+              )
+              Spacer(modifier = Modifier.height(10.dp))
+
+              // Transaction count badge
+              val transactionText = when (expenses.size) {
+                0 -> "No transactions"
+                1 -> "1 transaction"
+                else -> "${expenses.size} transactions"
+              }
+              Surface(
+                shape = RoundedCornerShape(8.dp),
+                color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.1f),
+                modifier = Modifier.wrapContentSize()
+              ) {
+                Text(
+                  text = transactionText,
+                  style = MaterialTheme.typography.labelMedium.copy(
+                    fontWeight = FontWeight.SemiBold
+                  ),
+                  color = MaterialTheme.colorScheme.onPrimaryContainer,
+                  modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                )
+              }
+            }
+
+            // Mini line trend chart on the right
+            MiniTrendChart(
+              expenses = expenses,
+              modifier = Modifier
+                .width(100.dp)
+                .height(64.dp)
+                .padding(start = 12.dp),
+              lineColor = MaterialTheme.colorScheme.onPrimaryContainer
+            )
+          }
+        }
       }
     }
   }

@@ -1,5 +1,6 @@
 package com.example.chobi.ui.main
 
+import com.example.chobi.data.Budget
 import com.example.chobi.data.Category
 import com.example.chobi.data.Expense
 import com.example.chobi.data.ExpenseRepository
@@ -8,6 +9,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.filterIsInstance
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.runTest
 import org.junit.Test
@@ -62,6 +64,7 @@ class MainScreenViewModelTest {
 private class FakeExpenseRepository : ExpenseRepository {
   private val _expenses = MutableStateFlow<List<Expense>>(emptyList())
   private val _categories = MutableStateFlow<List<Category>>(emptyList())
+  private val _budgets = MutableStateFlow<List<Budget>>(emptyList())
   
   override fun getAllExpenses(): Flow<List<Expense>> = _expenses
 
@@ -119,12 +122,19 @@ private class FakeExpenseRepository : ExpenseRepository {
   override suspend fun clearAllData() {
     _expenses.value = emptyList()
     _categories.value = emptyList()
+    _budgets.value = emptyList()
   }
 
-  override suspend fun importData(categories: List<Category>, expenses: List<Expense>, overwrite: Boolean) {
+  override suspend fun importData(
+    categories: List<Category>,
+    expenses: List<Pair<Expense, Long?>>,
+    budgets: List<Budget>,
+    overwrite: Boolean
+  ) {
     if (overwrite) {
       _categories.value = categories
-      _expenses.value = expenses
+      _budgets.value = budgets
+      _expenses.value = expenses.map { it.first }
     } else {
       val existingNames = _categories.value.map { it.name.lowercase() }.toSet()
       val newCats = _categories.value.toMutableList()
@@ -135,8 +145,22 @@ private class FakeExpenseRepository : ExpenseRepository {
       }
       _categories.value = newCats
 
+      val newBudgets = _budgets.value.toMutableList()
+      for (bud in budgets) {
+        val isDuplicate = _budgets.value.any {
+          it.title.lowercase() == bud.title.lowercase() &&
+          it.limitAmount == bud.limitAmount &&
+          it.startTimestamp == bud.startTimestamp
+        }
+        if (!isDuplicate) {
+          newBudgets.add(bud)
+        }
+      }
+      _budgets.value = newBudgets
+
       val newExpenses = _expenses.value.toMutableList()
-      for (exp in expenses) {
+      for (pair in expenses) {
+        val exp = pair.first
         val isDuplicate = _expenses.value.any {
           it.title.lowercase() == exp.title.lowercase() &&
           it.amount == exp.amount &&
@@ -149,5 +173,34 @@ private class FakeExpenseRepository : ExpenseRepository {
       }
       _expenses.value = newExpenses
     }
+  }
+
+  override fun getAllBudgets(): Flow<List<Budget>> = _budgets
+
+  override fun getActiveBudget(): Flow<Budget?> = _budgets.map { budgets ->
+    budgets.firstOrNull { it.endTimestamp == null }
+  }
+
+  override suspend fun insertBudget(budget: Budget): Long {
+    val current = _budgets.value.toMutableList()
+    val id = (current.size + 1).toLong()
+    current.add(budget.copy(id = id))
+    _budgets.value = current
+    return id
+  }
+
+  override suspend fun updateBudget(budget: Budget) {
+    val current = _budgets.value.toMutableList()
+    val index = current.indexOfFirst { it.id == budget.id }
+    if (index != -1) {
+      current[index] = budget
+      _budgets.value = current
+    }
+  }
+
+  override suspend fun deleteBudget(budget: Budget) {
+    val current = _budgets.value.toMutableList()
+    current.removeIf { it.id == budget.id }
+    _budgets.value = current
   }
 }

@@ -3,13 +3,12 @@ package com.example.chobi.data
 import androidx.room.Entity
 import androidx.room.PrimaryKey
 
-@Entity(tableName = "expenses")
-data class Expense(
+@Entity(tableName = "budgets")
+data class Budget(
     @PrimaryKey(autoGenerate = true)
     val id: Long = 0,
     val title: String,
-    val amount: Double,
-    val timestamp: Long,
-    val category: String,
-    val budgetId: Long? = null
+    val limitAmount: Double,
+    val startTimestamp: Long,
+    val endTimestamp: Long? = null
 )

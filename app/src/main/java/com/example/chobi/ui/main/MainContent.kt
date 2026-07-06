@@ -5,31 +5,50 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.remember
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import com.example.chobi.data.Budget
 import com.example.chobi.data.Category
 import com.example.chobi.data.Expense
 import com.example.chobi.data.getGroupHeader
 import com.example.chobi.theme.ChobiTheme
 import com.example.chobi.ui.components.ExpenseItem
 import com.example.chobi.ui.components.SummaryCard
+import com.example.chobi.ui.components.BudgetDialog
 import java.util.Locale
 
 @Composable
 fun MainContent(
   expenses: List<Expense>,
   categories: List<Category>,
+  budgets: List<Budget>,
   onDeleteExpense: (Expense) -> Unit,
+  onCreateBudget: (title: String, limitAmount: Double) -> Unit,
+  onDeleteBudget: (Budget) -> Unit,
   currencyCode: String = "USD",
   timeFormatPreference: String = "auto",
   modifier: Modifier = Modifier,
-  onExpenseLongClick: ((Expense) -> Unit)? = null
+  onExpenseClick: ((Expense) -> Unit)? = null
 ) {
-  val totalAmount = expenses.sumOf { it.amount }
+  var selectedBudget by remember(budgets) {
+    mutableStateOf(budgets.firstOrNull { it.endTimestamp == null } ?: budgets.firstOrNull())
+  }
+
+  var showBudgetDialog by remember { mutableStateOf(false) }
+
+  val filteredExpenses = remember(expenses, selectedBudget) {
+    val currentBudget = selectedBudget
+    if (currentBudget == null) {
+      expenses
+    } else {
+      expenses.filter { it.budgetId == currentBudget.id }
+    }
+  }
+
+  val totalAmount = filteredExpenses.sumOf { it.amount }
   val currencyFormatter = remember(currencyCode) {
     try {
       val icuCurrency = android.icu.util.Currency.getInstance(currencyCode)
@@ -41,19 +60,34 @@ fun MainContent(
     }
   }
 
-  val groupedExpenses = remember(expenses) {
-    expenses.groupBy { getGroupHeader(it.timestamp) }
+  val groupedExpenses = remember(filteredExpenses) {
+    filteredExpenses.groupBy { getGroupHeader(it.timestamp) }
+  }
+
+  if (showBudgetDialog) {
+    BudgetDialog(
+      onDismiss = { showBudgetDialog = false },
+      onConfirm = { title, limit ->
+        onCreateBudget(title, limit)
+        showBudgetDialog = false
+      }
+    )
   }
 
   LazyColumn(
     modifier = modifier,
     verticalArrangement = Arrangement.spacedBy(4.dp)
   ) {
-    // Summary Card
+    // Summary/Wallet Card
     item {
       SummaryCard(
-        expenses = expenses,
+        expenses = filteredExpenses,
         totalAmount = totalAmount,
+        budgets = budgets,
+        selectedBudget = selectedBudget,
+        onSelectBudget = { selectedBudget = it },
+        onNewBudgetClick = { showBudgetDialog = true },
+        onDeleteBudget = onDeleteBudget,
         currencyCode = currencyCode,
         currencyFormatter = currencyFormatter,
         modifier = Modifier
@@ -62,7 +96,7 @@ fun MainContent(
       )
     }
 
-    if (expenses.isEmpty()) {
+    if (filteredExpenses.isEmpty()) {
       item {
         Box(
           modifier = Modifier
@@ -71,7 +105,7 @@ fun MainContent(
           contentAlignment = Alignment.Center
         ) {
           Text(
-            text = "No expenses added yet.",
+            text = if (selectedBudget != null) "No expenses in this budget period." else "No expenses added yet.",
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant
           )
@@ -119,7 +153,7 @@ fun MainContent(
             onDelete = { onDeleteExpense(expense) },
             currencyFormatter = currencyFormatter,
             timeFormatPreference = timeFormatPreference,
-            onLongClick = { onExpenseLongClick?.invoke(expense) },
+            onClick = { onExpenseClick?.invoke(expense) },
             modifier = Modifier.animateItem()
           )
         }
@@ -141,7 +175,10 @@ fun MainScreenPreview() {
         Category(id = 1, name = "Food", iconName = "Restaurant", colorHex = "#FF9800"),
         Category(id = 2, name = "Transport", iconName = "DirectionsCar", colorHex = "#2196F3")
       ),
-      onDeleteExpense = {}
+      budgets = emptyList(),
+      onDeleteExpense = {},
+      onCreateBudget = { _, _ -> },
+      onDeleteBudget = {}
     )
   }
 }

@@ -104,6 +104,7 @@ fun MainScreen(
   val successState = state as? MainScreenUiState.Success
   val currentCategories = successState?.categories ?: emptyList()
   val currentExpenses = successState?.expenses ?: emptyList()
+  val currentBudgets = successState?.budgets ?: emptyList()
 
   val exportJsonLauncher = rememberLauncherForActivityResult(
     contract = ActivityResultContracts.CreateDocument("application/json")
@@ -114,6 +115,7 @@ fun MainScreen(
         uri = uri,
         categories = currentCategories,
         expenses = currentExpenses,
+        budgets = currentBudgets,
         onSuccess = {
           Toast.makeText(context, "Data exported successfully", Toast.LENGTH_SHORT).show()
         },
@@ -209,10 +211,17 @@ fun MainScreen(
         MainContent(
           expenses = success.expenses,
           categories = success.categories,
+          budgets = success.budgets,
           onDeleteExpense = { expense ->
             viewModel.deleteExpense(expense)
           },
-          onExpenseLongClick = { expense ->
+          onCreateBudget = { title, limit ->
+            viewModel.createNewBudget(title, limit)
+          },
+          onDeleteBudget = { budget ->
+            viewModel.deleteBudget(budget)
+          },
+          onExpenseClick = { expense ->
             expenseToEdit = expense
             showBottomSheet = true
           },

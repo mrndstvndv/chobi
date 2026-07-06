@@ -14,12 +14,19 @@ interface ExpenseRepository {
     suspend fun deleteCategory(category: Category)
     suspend fun prepopulateDefaultCategories()
     suspend fun clearAllData()
-    suspend fun importData(categories: List<Category>, expenses: List<Expense>, overwrite: Boolean)
+    suspend fun importData(categories: List<Category>, expenses: List<Pair<Expense, Long?>>, budgets: List<Budget>, overwrite: Boolean)
+
+    fun getAllBudgets(): Flow<List<Budget>>
+    fun getActiveBudget(): Flow<Budget?>
+    suspend fun insertBudget(budget: Budget): Long
+    suspend fun updateBudget(budget: Budget)
+    suspend fun deleteBudget(budget: Budget)
 }
 
 class DefaultExpenseRepository(
     private val expenseDao: ExpenseDao,
-    private val categoryDao: CategoryDao
+    private val categoryDao: CategoryDao,
+    private val budgetDao: BudgetDao
 ) : ExpenseRepository {
     override fun getAllExpenses(): Flow<List<Expense>> = expenseDao.getAllExpenses()
 
@@ -64,16 +71,25 @@ class DefaultExpenseRepository(
     override suspend fun clearAllData() {
         expenseDao.deleteAllExpenses()
         categoryDao.deleteAllCategories()
+        budgetDao.deleteAllBudgets()
     }
 
-    override suspend fun importData(categories: List<Category>, expenses: List<Expense>, overwrite: Boolean) {
+    override suspend fun importData(categories: List<Category>, expenses: List<Pair<Expense, Long?>>, budgets: List<Budget>, overwrite: Boolean) {
         if (overwrite) {
             clearAllData()
             for (cat in categories) {
                 categoryDao.insertCategory(cat.copy(id = 0))
             }
-            for (exp in expenses) {
-                expenseDao.insertExpense(exp.copy(id = 0))
+            val newBudgetIdsByStart = mutableMapOf<Long, Long>()
+            for (bud in budgets) {
+                val newId = budgetDao.insertBudget(bud.copy(id = 0))
+                newBudgetIdsByStart[bud.startTimestamp] = newId
+            }
+            for (pair in expenses) {
+                val exp = pair.first
+                val budgetStart = pair.second
+                val mappedBudgetId = budgetStart?.let { newBudgetIdsByStart[it] }
+                expenseDao.insertExpense(exp.copy(id = 0, budgetId = mappedBudgetId))
             }
         } else {
             // Merge mode
@@ -85,8 +101,26 @@ class DefaultExpenseRepository(
                 }
             }
 
+            val existingBudgets = budgetDao.getAllBudgets().first()
+            val newBudgetIdsByStart = mutableMapOf<Long, Long>()
+            for (bud in budgets) {
+                val existing = existingBudgets.firstOrNull {
+                    it.title.lowercase() == bud.title.lowercase() &&
+                    it.limitAmount == bud.limitAmount &&
+                    it.startTimestamp == bud.startTimestamp
+                }
+                val newId = if (existing != null) {
+                    existing.id
+                } else {
+                    budgetDao.insertBudget(bud.copy(id = 0))
+                }
+                newBudgetIdsByStart[bud.startTimestamp] = newId
+            }
+
             val existingExpenses = expenseDao.getAllExpenses().first()
-            for (exp in expenses) {
+            for (pair in expenses) {
+                val exp = pair.first
+                val budgetStart = pair.second
                 val isDuplicate = existingExpenses.any {
                     it.title.lowercase() == exp.title.lowercase() &&
                     it.amount == exp.amount &&
@@ -94,9 +128,20 @@ class DefaultExpenseRepository(
                     it.timestamp == exp.timestamp
                 }
                 if (!isDuplicate) {
-                    expenseDao.insertExpense(exp.copy(id = 0))
+                    val mappedBudgetId = budgetStart?.let { newBudgetIdsByStart[it] }
+                    expenseDao.insertExpense(exp.copy(id = 0, budgetId = mappedBudgetId))
                 }
             }
         }
     }
+
+    override fun getAllBudgets(): Flow<List<Budget>> = budgetDao.getAllBudgets()
+
+    override fun getActiveBudget(): Flow<Budget?> = budgetDao.getActiveBudget()
+
+    override suspend fun insertBudget(budget: Budget): Long = budgetDao.insertBudget(budget)
+
+    override suspend fun updateBudget(budget: Budget) = budgetDao.updateBudget(budget)
+
+    override suspend fun deleteBudget(budget: Budget) = budgetDao.deleteBudget(budget)
 }

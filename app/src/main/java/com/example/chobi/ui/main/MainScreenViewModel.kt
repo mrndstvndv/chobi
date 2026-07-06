@@ -6,12 +6,14 @@ import com.example.chobi.data.AppDatabase
 import com.example.chobi.data.BackupHelper
 import com.example.chobi.data.Category
 import com.example.chobi.data.Expense
+import com.example.chobi.data.Budget
 import com.example.chobi.data.ExpenseRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -20,21 +22,24 @@ class MainScreenViewModel(private val expenseRepository: ExpenseRepository) : Vi
   val uiState: StateFlow<MainScreenUiState> =
     combine(
       expenseRepository.getAllExpenses(),
-      expenseRepository.getAllCategories()
-    ) { expenses, categories ->
-      MainScreenUiState.Success(expenses, categories) as MainScreenUiState
+      expenseRepository.getAllCategories(),
+      expenseRepository.getAllBudgets()
+    ) { expenses, categories, budgets ->
+      MainScreenUiState.Success(expenses, categories, budgets) as MainScreenUiState
     }
       .catch { emit(MainScreenUiState.Error(it)) }
       .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), MainScreenUiState.Loading)
 
   fun addExpense(title: String, amount: Double, categoryName: String, timestamp: Long = System.currentTimeMillis()) {
     viewModelScope.launch {
+      val activeBudget = expenseRepository.getActiveBudget().first()
       expenseRepository.insertExpense(
         Expense(
           title = title,
           amount = amount,
           category = categoryName,
-          timestamp = timestamp
+          timestamp = timestamp,
+          budgetId = activeBudget?.id
         )
       )
     }
@@ -76,17 +81,42 @@ class MainScreenViewModel(private val expenseRepository: ExpenseRepository) : Vi
     }
   }
 
+  fun createNewBudget(title: String, limitAmount: Double) {
+    viewModelScope.launch {
+      val budgets = expenseRepository.getAllBudgets().first()
+      val activeBudgets = budgets.filter { it.endTimestamp == null }
+      for (budget in activeBudgets) {
+        expenseRepository.updateBudget(budget.copy(endTimestamp = System.currentTimeMillis()))
+      }
+      expenseRepository.insertBudget(
+        Budget(
+          title = title,
+          limitAmount = limitAmount,
+          startTimestamp = System.currentTimeMillis(),
+          endTimestamp = null
+        )
+      )
+    }
+  }
+
+  fun deleteBudget(budget: Budget) {
+    viewModelScope.launch {
+      expenseRepository.deleteBudget(budget)
+    }
+  }
+
   fun exportDataToJson(
     context: android.content.Context,
     uri: android.net.Uri,
     categories: List<Category>,
     expenses: List<Expense>,
+    budgets: List<Budget>,
     onSuccess: () -> Unit,
     onError: (Throwable) -> Unit
   ) {
     viewModelScope.launch(Dispatchers.IO) {
       try {
-        val jsonString = BackupHelper.exportToJson(categories, expenses)
+        val jsonString = BackupHelper.exportToJson(categories, expenses, budgets)
         context.contentResolver.openOutputStream(uri)?.use { outStream ->
           outStream.bufferedWriter().use { it.write(jsonString) }
         } ?: throw Exception("Failed to open output stream")
@@ -113,8 +143,8 @@ class MainScreenViewModel(private val expenseRepository: ExpenseRepository) : Vi
         val jsonString = context.contentResolver.openInputStream(uri)?.use { inStream ->
           inStream.bufferedReader().use { it.readText() }
         } ?: throw Exception("Failed to open input stream")
-        val (categories, expenses) = BackupHelper.importFromJson(jsonString)
-        expenseRepository.importData(categories, expenses, overwrite)
+        val (categories, expenses, budgets) = BackupHelper.importFromJson(jsonString)
+        expenseRepository.importData(categories, expenses, budgets, overwrite)
         withContext(Dispatchers.Main) {
           onSuccess()
         }
@@ -199,5 +229,5 @@ class MainScreenViewModel(private val expenseRepository: ExpenseRepository) : Vi
 sealed interface MainScreenUiState {
   data object Loading : MainScreenUiState
   data class Error(val throwable: Throwable) : MainScreenUiState
-  data class Success(val expenses: List<Expense>, val categories: List<Category>) : MainScreenUiState
+  data class Success(val expenses: List<Expense>, val categories: List<Category>, val budgets: List<Budget>) : MainScreenUiState
 }

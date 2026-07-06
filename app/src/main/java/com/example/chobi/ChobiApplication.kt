@@ -10,7 +10,7 @@ import kotlinx.coroutines.launch
 
 class ChobiApplication : Application() {
     val database by lazy { AppDatabase.getDatabase(this) }
-    val expenseRepository by lazy { DefaultExpenseRepository(database.expenseDao(), database.categoryDao()) }
+    val expenseRepository by lazy { DefaultExpenseRepository(database.expenseDao(), database.categoryDao(), database.budgetDao()) }
 
     override fun onCreate() {
         super.onCreate()

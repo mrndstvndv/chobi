@@ -10,6 +10,13 @@ A minimal, clean expense tracker and budget planner Android app built with Jetpa
 - **Insights & Summary:** Interactive charts and overview cards to visualize spending habits.
 - **Offline First:** Local database powered by Jetpack Room.
 
+## Planned Features
+
+- [ ] **Online Sync** — Backup and sync data across devices via cloud.
+- [ ] Recurring transactions — Auto-log recurring bills and subscriptions.
+- [ ] Receipt scanning — Snap and attach receipts to expenses.
+- [ ] Widgets — Home screen widgets for quick glance.
+
 ## Tech Stack
 
 - **Language:** Kotlin

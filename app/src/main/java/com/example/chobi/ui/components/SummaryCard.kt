@@ -95,7 +95,12 @@ fun SummaryCard(
               onDismissRequest = { showDropdown = false }
             ) {
               DropdownMenuItem(
-                text = { Text("All Expenses (No Budget)") },
+                text = {
+                  Text(
+                    text = "All Expenses (No Budget)",
+                    fontWeight = if (selectedBudget == null) FontWeight.Bold else FontWeight.Normal
+                  )
+                },
                 onClick = {
                   onSelectBudget(null)
                   showDropdown = false
@@ -104,12 +109,12 @@ fun SummaryCard(
               if (budgets.isNotEmpty()) {
                 HorizontalDivider()
                 budgets.forEach { budget ->
-                  val isActive = budget.endTimestamp == null
+                  val isSelected = selectedBudget?.id == budget.id
                   DropdownMenuItem(
                     text = {
                       Text(
                         text = budget.title,
-                        fontWeight = if (isActive) FontWeight.Bold else FontWeight.Normal
+                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
                       )
                     },
                     onClick = {

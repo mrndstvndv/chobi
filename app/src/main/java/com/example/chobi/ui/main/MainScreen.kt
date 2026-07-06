@@ -241,7 +241,7 @@ fun MainScreen(
               expenseToEdit = null
               showBottomSheet = false
             },
-            sheetState = rememberBottomSheetState(skipPartiallyExpanded = true, initialValue = SheetValue.Hidden)
+            sheetState = rememberBottomSheetState(initialValue = SheetValue.Hidden, enabledValues = setOf(SheetValue.Hidden, SheetValue.Expanded))
           ) {
             AddExpenseSheet(
               categories = success.categories,

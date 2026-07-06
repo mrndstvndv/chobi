@@ -59,6 +59,24 @@ class MainScreenViewModelTest {
     
     collectJob.cancel()
   }
+
+  @Test
+  fun uiState_onItemSavedWithSpecificBudgetId_isAssociatedWithBudget() = runTest {
+    val repository = FakeExpenseRepository()
+    val viewModel = MainScreenViewModel(repository)
+    
+    val collectJob = launch { viewModel.uiState.collect {} }
+    
+    val budgetId = 42L
+    viewModel.addExpense("Lunch", 15.50, "Food", budgetId = budgetId)
+    
+    val successState = viewModel.uiState.filterIsInstance<MainScreenUiState.Success>().first()
+    assertEquals(1, successState.expenses.size)
+    assertEquals("Lunch", successState.expenses[0].title)
+    assertEquals(budgetId, successState.expenses[0].budgetId)
+    
+    collectJob.cancel()
+  }
 }
 
 private class FakeExpenseRepository : ExpenseRepository {

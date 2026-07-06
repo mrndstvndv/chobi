@@ -3,7 +3,7 @@ package com.example.chobi.ui.main
 import android.icu.text.NumberFormat
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -20,11 +20,14 @@ import com.example.chobi.ui.components.SummaryCard
 import com.example.chobi.ui.components.BudgetDialog
 import java.util.Locale
 
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun MainContent(
   expenses: List<Expense>,
   categories: List<Category>,
   budgets: List<Budget>,
+  selectedBudget: Budget?,
+  onSelectBudget: (Budget?) -> Unit,
   onDeleteExpense: (Expense) -> Unit,
   onCreateBudget: (title: String, limitAmount: Double) -> Unit,
   onDeleteBudget: (Budget) -> Unit,
@@ -33,9 +36,6 @@ fun MainContent(
   modifier: Modifier = Modifier,
   onExpenseClick: ((Expense) -> Unit)? = null
 ) {
-  var selectedBudget by remember(budgets) {
-    mutableStateOf(budgets.firstOrNull { it.endTimestamp == null } ?: budgets.firstOrNull())
-  }
 
   var showBudgetDialog by remember { mutableStateOf(false) }
 
@@ -76,7 +76,7 @@ fun MainContent(
 
   LazyColumn(
     modifier = modifier,
-    verticalArrangement = Arrangement.spacedBy(4.dp)
+    verticalArrangement = Arrangement.spacedBy(ListItemDefaults.SegmentedGap)
   ) {
     // Summary/Wallet Card
     item {
@@ -85,7 +85,7 @@ fun MainContent(
         totalAmount = totalAmount,
         budgets = budgets,
         selectedBudget = selectedBudget,
-        onSelectBudget = { selectedBudget = it },
+        onSelectBudget = onSelectBudget,
         onNewBudgetClick = { showBudgetDialog = true },
         onDeleteBudget = onDeleteBudget,
         currencyCode = currencyCode,
@@ -145,7 +145,7 @@ fun MainContent(
             )
           }
         }
-        items(itemsForHeader, key = { it.id }) { expense ->
+        itemsIndexed(itemsForHeader, key = { _, it -> it.id }) { index, expense ->
           val matchingCategory = categories.firstOrNull { it.name.lowercase() == expense.category.lowercase() }
           ExpenseItem(
             expense = expense,
@@ -154,13 +154,17 @@ fun MainContent(
             currencyFormatter = currencyFormatter,
             timeFormatPreference = timeFormatPreference,
             onClick = { onExpenseClick?.invoke(expense) },
-            modifier = Modifier.animateItem()
+            shapes = ListItemDefaults.segmentedShapes(index, itemsForHeader.size),
+            modifier = Modifier
+              .animateItem()
+              .padding(horizontal = 16.dp)
           )
         }
       }
     }
   }
 }
+
 
 @Preview(showBackground = true)
 @Composable
@@ -176,6 +180,8 @@ fun MainScreenPreview() {
         Category(id = 2, name = "Transport", iconName = "DirectionsCar", colorHex = "#2196F3")
       ),
       budgets = emptyList(),
+      selectedBudget = null,
+      onSelectBudget = {},
       onDeleteExpense = {},
       onCreateBudget = { _, _ -> },
       onDeleteBudget = {}

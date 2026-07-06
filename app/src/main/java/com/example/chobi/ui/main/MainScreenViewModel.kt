@@ -30,16 +30,22 @@ class MainScreenViewModel(private val expenseRepository: ExpenseRepository) : Vi
       .catch { emit(MainScreenUiState.Error(it)) }
       .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), MainScreenUiState.Loading)
 
-  fun addExpense(title: String, amount: Double, categoryName: String, timestamp: Long = System.currentTimeMillis()) {
+  fun addExpense(
+    title: String,
+    amount: Double,
+    categoryName: String,
+    timestamp: Long = System.currentTimeMillis(),
+    budgetId: Long? = null
+  ) {
     viewModelScope.launch {
-      val activeBudget = expenseRepository.getActiveBudget().first()
+      val targetBudgetId = budgetId ?: expenseRepository.getActiveBudget().first()?.id
       expenseRepository.insertExpense(
         Expense(
           title = title,
           amount = amount,
           category = categoryName,
           timestamp = timestamp,
-          budgetId = activeBudget?.id
+          budgetId = targetBudgetId
         )
       )
     }

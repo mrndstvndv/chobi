@@ -26,7 +26,11 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
-@OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
+@OptIn(
+  ExperimentalFoundationApi::class,
+  ExperimentalMaterial3Api::class,
+  ExperimentalMaterial3ExpressiveApi::class
+)
 @Composable
 fun ExpenseItem(
   expense: Expense,
@@ -35,6 +39,7 @@ fun ExpenseItem(
   currencyFormatter: NumberFormat,
   timeFormatPreference: String = "auto",
   modifier: Modifier = Modifier,
+  shapes: ListItemShapes = ListItemDefaults.segmentedShapes(0, 1),
   onLongClick: (() -> Unit)? = null,
   onClick: (() -> Unit)? = null
 ) {
@@ -54,7 +59,9 @@ fun ExpenseItem(
   SwipeToDismissBox(
     state = dismissState,
     onDismiss = { value -> onDelete() },
-    modifier = modifier.fillMaxWidth(),
+    modifier = modifier
+      .fillMaxWidth()
+      .clip(shapes.shape),
     backgroundContent = {
       val direction = dismissState.dismissDirection
       val color = when (direction) {
@@ -86,29 +93,18 @@ fun ExpenseItem(
       }
     },
     content = {
-      val itemModifier = if (onLongClick != null || onClick != null) {
-        Modifier
-          .fillMaxWidth()
-          .combinedClickable(
-            onClick = { onClick?.invoke() },
-            onLongClick = { onLongClick?.invoke() }
-          )
-      } else {
-        Modifier.fillMaxWidth()
-      }
-
-      Row(
-        modifier = itemModifier
-          .background(MaterialTheme.colorScheme.surface)
-          .padding(horizontal = 16.dp, vertical = 12.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.SpaceBetween
-      ) {
-        Row(
-          modifier = Modifier.weight(1f),
-          verticalAlignment = Alignment.CenterVertically
-        ) {
-          // Icon Container
+      SegmentedListItem(
+        onClick = { onClick?.invoke() },
+        shapes = shapes,
+        onLongClick = onLongClick,
+        colors = ListItemDefaults.segmentedColors(
+          containerColor = MaterialTheme.colorScheme.surfaceContainer
+        ),
+        elevation = ListItemDefaults.elevation(
+          1.dp,
+          3.dp
+        ),
+        leadingContent = {
           Box(
             modifier = Modifier
               .size(40.dp)
@@ -123,36 +119,50 @@ fun ExpenseItem(
               modifier = Modifier.size(24.dp)
             )
           }
-          Spacer(modifier = Modifier.width(16.dp))
-          Column {
-            Text(
-              text = expense.title,
-              style = MaterialTheme.typography.titleMedium
-            )
-            Text(
-              text = "${expense.category} • ${timeFormatter.format(Date(expense.timestamp))}",
-              style = MaterialTheme.typography.bodySmall,
-              color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
+        },
+        supportingContent = {
+          Text(
+            text = "${expense.category} • ${timeFormatter.format(Date(expense.timestamp))}",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+          )
+        },
+        trailingContent = {
+          val isIncome = expense.amount < 0
+          val displayAmount = if (isIncome) {
+            "+" + currencyFormatter.format(kotlin.math.abs(expense.amount))
+          } else {
+            currencyFormatter.format(expense.amount)
           }
-        }
-        val isIncome = expense.amount < 0
-        val displayAmount = if (isIncome) {
-          "+" + currencyFormatter.format(kotlin.math.abs(expense.amount))
-        } else {
-          currencyFormatter.format(expense.amount)
-        }
-        val amountColor = if (isIncome) {
-          Color(0xFF2E7D32) // Nice green color for income/funds
-        } else {
-          MaterialTheme.colorScheme.primary
-        }
-        Text(
-          text = displayAmount,
-          style = MaterialTheme.typography.titleLarge,
-          color = amountColor
-        )
-      }
+          val amountColor = if (isIncome) {
+            Color(0xFF2E7D32) // Nice green color for income/funds
+          } else {
+            MaterialTheme.colorScheme.primary
+          }
+          Text(
+            text = displayAmount,
+            style = MaterialTheme.typography.titleLarge,
+            color = amountColor
+          )
+        },
+        content = {
+          Text(
+            text = expense.title,
+            style = MaterialTheme.typography.titleMedium
+          )
+        },
+        modifier = Modifier.fillMaxWidth()
+      )
     }
   )
 }
+
+
+
+
+
+
+
+
+
+

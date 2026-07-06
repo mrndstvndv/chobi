@@ -106,6 +106,10 @@ fun MainScreen(
   val currentExpenses = successState?.expenses ?: emptyList()
   val currentBudgets = successState?.budgets ?: emptyList()
 
+  var selectedBudget by remember(currentBudgets) {
+    mutableStateOf(currentBudgets.firstOrNull { it.endTimestamp == null } ?: currentBudgets.firstOrNull())
+  }
+
   val exportJsonLauncher = rememberLauncherForActivityResult(
     contract = ActivityResultContracts.CreateDocument("application/json")
   ) { uri ->
@@ -212,6 +216,8 @@ fun MainScreen(
           expenses = success.expenses,
           categories = success.categories,
           budgets = success.budgets,
+          selectedBudget = selectedBudget,
+          onSelectBudget = { selectedBudget = it },
           onDeleteExpense = { expense ->
             viewModel.deleteExpense(expense)
           },
@@ -244,7 +250,7 @@ fun MainScreen(
               categories = success.categories,
               expenseToEdit = expenseToEdit,
               onAddExpense = { title, amount, categoryName, timestamp ->
-                viewModel.addExpense(title, amount, categoryName, timestamp)
+                viewModel.addExpense(title, amount, categoryName, timestamp, selectedBudget?.id)
                 showBottomSheet = false
               },
               onUpdateExpense = { updatedExpense ->

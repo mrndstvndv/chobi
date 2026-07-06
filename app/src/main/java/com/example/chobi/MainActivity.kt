@@ -9,46 +9,63 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.remember
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.repeatOnLifecycle
 import com.example.chobi.theme.ChobiTheme
 import com.example.chobi.ui.main.DYNAMIC_COLOR_KEY
 import com.example.chobi.ui.main.THEME_MODE_KEY
 import com.example.chobi.ui.main.dataStore
-import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
   override fun onCreate(savedInstanceState: Bundle?) {
-    installSplashScreen()
+    val splashScreen = installSplashScreen()
     super.onCreate(savedInstanceState)
+
+    var isReady by mutableStateOf(false)
+    var dynamicColorState by mutableStateOf(false)
+    var themeModeState by mutableStateOf("system")
+
+    // Retrieve settings asynchronously before showing the main UI
+    lifecycleScope.launch {
+      lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
+        dataStore.data.collect { preferences ->
+          dynamicColorState = preferences[DYNAMIC_COLOR_KEY] ?: false
+          themeModeState = preferences[THEME_MODE_KEY] ?: "system"
+          isReady = true
+        }
+      }
+    }
+
+    // Keep splash screen visible until settings are loaded
+    splashScreen.setKeepOnScreenCondition {
+      !isReady
+    }
 
     enableEdgeToEdge()
     setContent {
-      val dynamicColorState by remember {
-        dataStore.data.map { it[DYNAMIC_COLOR_KEY] ?: false }
-      }.collectAsStateWithLifecycle(initialValue = false)
+      if (isReady) {
+        val darkTheme = when (themeModeState) {
+          "light" -> false
+          "dark" -> true
+          else -> isSystemInDarkTheme()
+        }
 
-      val themeModeState by remember {
-        dataStore.data.map { it[THEME_MODE_KEY] ?: "system" }
-      }.collectAsStateWithLifecycle(initialValue = "system")
-
-      val darkTheme = when (themeModeState) {
-        "light" -> false
-        "dark" -> true
-        else -> isSystemInDarkTheme()
-      }
-
-      ChobiTheme(
-        darkTheme = darkTheme,
-        dynamicColor = dynamicColorState
-      ) {
-        Surface(
-          modifier = Modifier.fillMaxSize(),
-          color = MaterialTheme.colorScheme.background
+        ChobiTheme(
+          darkTheme = darkTheme,
+          dynamicColor = dynamicColorState
         ) {
-          MainNavigation()
+          Surface(
+            modifier = Modifier.fillMaxSize(),
+            color = MaterialTheme.colorScheme.background
+          ) {
+            MainNavigation()
+          }
         }
       }
     }

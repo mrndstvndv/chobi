@@ -28,7 +28,7 @@ import androidx.compose.ui.unit.dp
 import com.example.chobi.data.Budget
 import com.example.chobi.data.Expense
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun SummaryCard(
   expenses: List<Expense>,
@@ -92,52 +92,78 @@ fun SummaryCard(
 
             DropdownMenu(
               expanded = showDropdown,
-              onDismissRequest = { showDropdown = false }
+              onDismissRequest = { showDropdown = false },
+              modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+              containerColor = Color.Transparent,
+              shadowElevation = 0.dp,
+              tonalElevation = 0.dp,
+              border = null
             ) {
-              DropdownMenuItem(
-                text = {
-                  Text(
-                    text = "All Expenses (No Budget)",
-                    fontWeight = if (selectedBudget == null) FontWeight.Bold else FontWeight.Normal
-                  )
-                },
-                onClick = {
-                  onSelectBudget(null)
-                  showDropdown = false
-                }
-              )
+              val groupCount = if (budgets.isNotEmpty()) 3 else 2
+
+              DropdownMenuGroup(
+                shapes = MenuDefaults.groupShape(0, groupCount),
+                containerColor = MenuDefaults.groupStandardContainerColor
+              ) {
+                DropdownMenuItem(
+                  text = {
+                    Text(
+                      text = "All Expenses (No Budget)",
+                      fontWeight = if (selectedBudget == null) FontWeight.Bold else FontWeight.Normal
+                    )
+                  },
+                  onClick = {
+                    onSelectBudget(null)
+                    showDropdown = false
+                  }
+                )
+              }
+
               if (budgets.isNotEmpty()) {
-                HorizontalDivider()
-                budgets.forEach { budget ->
-                  val isSelected = selectedBudget?.id == budget.id
-                  DropdownMenuItem(
-                    text = {
-                      Text(
-                        text = budget.title,
-                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
-                      )
-                    },
-                    onClick = {
-                      onSelectBudget(budget)
-                      showDropdown = false
-                    }
-                  )
+                Spacer(modifier = Modifier.height(MenuDefaults.GroupSpacing))
+                DropdownMenuGroup(
+                  shapes = MenuDefaults.groupShape(1, groupCount),
+                  containerColor = MenuDefaults.groupStandardContainerColor
+                ) {
+                  budgets.forEach { budget ->
+                    val isSelected = selectedBudget?.id == budget.id
+                    DropdownMenuItem(
+                      text = {
+                        Text(
+                          text = budget.title,
+                          fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
+                        )
+                      },
+                      onClick = {
+                        onSelectBudget(budget)
+                        showDropdown = false
+                      }
+                    )
+                  }
                 }
               }
-              HorizontalDivider()
-              DropdownMenuItem(
-                text = { Text("+ Create New Budget") },
-                onClick = {
-                  onNewBudgetClick()
-                  showDropdown = false
-                },
-                leadingIcon = {
-                  Icon(
-                    imageVector = Icons.Default.Add,
-                    contentDescription = null
-                  )
-                }
-              )
+
+              Spacer(modifier = Modifier.height(MenuDefaults.GroupSpacing))
+              DropdownMenuGroup(
+                shapes = MenuDefaults.groupShape(if (budgets.isNotEmpty()) 2 else 1, groupCount),
+                containerColor = MenuDefaults.groupStandardContainerColor
+              ) {
+                DropdownMenuItem(
+                  text = { Text("Create New Budget") },
+                  onClick = {
+                    onNewBudgetClick()
+                    showDropdown = false
+                  },
+                  leadingIcon = {
+                    Icon(
+                      imageVector = Icons.Default.Add,
+                      contentDescription = null
+                    )
+                  }
+                )
+              }
+
+              Spacer(modifier = Modifier.height(12.dp))
             }
           }
 

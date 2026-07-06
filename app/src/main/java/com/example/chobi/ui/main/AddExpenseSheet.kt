@@ -24,6 +24,8 @@ import androidx.compose.ui.focus.FocusDirection
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.graphics.Color
@@ -72,7 +74,12 @@ fun AddExpenseSheet(
 
   var selectedTimestamp by remember(expenseToEdit) { mutableStateOf(expenseToEdit?.timestamp ?: System.currentTimeMillis()) }
   var showDatePicker by remember { mutableStateOf(false) }
+  var showTimePicker by remember { mutableStateOf(false) }
   val dateFormatter = remember { SimpleDateFormat("MMM dd, yyyy", Locale.getDefault()) }
+  val context = LocalContext.current
+  val timeFormatter = remember {
+    android.text.format.DateFormat.getTimeFormat(context)
+  }
 
   val systemCurrency = remember(currencyCode) {
     try {
@@ -168,27 +175,55 @@ fun AddExpenseSheet(
       modifier = Modifier.fillMaxWidth()
     )
 
-    Box(
-      modifier = Modifier.fillMaxWidth()
+    Row(
+      modifier = Modifier.fillMaxWidth(),
+      horizontalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-      OutlinedTextField(
-        value = dateFormatter.format(Date(selectedTimestamp)),
-        onValueChange = {},
-        readOnly = true,
-        label = { Text("Date") },
-        leadingIcon = {
-          Icon(
-            imageVector = Icons.Default.DateRange,
-            contentDescription = "Select Date"
-          )
-        },
-        modifier = Modifier.fillMaxWidth()
-      )
       Box(
-        modifier = Modifier
-          .matchParentSize()
-          .clickable { showDatePicker = true }
-      )
+        modifier = Modifier.weight(1f)
+      ) {
+        OutlinedTextField(
+          value = dateFormatter.format(Date(selectedTimestamp)),
+          onValueChange = {},
+          readOnly = true,
+          label = { Text("Date") },
+          leadingIcon = {
+            Icon(
+              imageVector = Icons.Default.DateRange,
+              contentDescription = "Select Date"
+            )
+          },
+          modifier = Modifier.fillMaxWidth()
+        )
+        Box(
+          modifier = Modifier
+            .matchParentSize()
+            .clickable { showDatePicker = true }
+        )
+      }
+
+      Box(
+        modifier = Modifier.weight(1f)
+      ) {
+        OutlinedTextField(
+          value = timeFormatter.format(Date(selectedTimestamp)),
+          onValueChange = {},
+          readOnly = true,
+          label = { Text("Time") },
+          leadingIcon = {
+            Icon(
+              imageVector = Icons.Filled.Schedule,
+              contentDescription = "Select Time"
+            )
+          },
+          modifier = Modifier.fillMaxWidth()
+        )
+        Box(
+          modifier = Modifier
+            .matchParentSize()
+            .clickable { showTimePicker = true }
+        )
+      }
     }
 
     FlowRow(
@@ -362,7 +397,19 @@ fun AddExpenseSheet(
         confirmButton = {
           TextButton(
             onClick = {
-              selectedTimestamp = datePickerState.selectedDateMillis ?: System.currentTimeMillis()
+              val newDateMillis = datePickerState.selectedDateMillis
+              if (newDateMillis != null) {
+                val utcCal = java.util.Calendar.getInstance(java.util.TimeZone.getTimeZone("UTC")).apply {
+                  timeInMillis = newDateMillis
+                }
+                val localCal = java.util.Calendar.getInstance().apply {
+                  timeInMillis = selectedTimestamp
+                  set(java.util.Calendar.YEAR, utcCal.get(java.util.Calendar.YEAR))
+                  set(java.util.Calendar.MONTH, utcCal.get(java.util.Calendar.MONTH))
+                  set(java.util.Calendar.DAY_OF_MONTH, utcCal.get(java.util.Calendar.DAY_OF_MONTH))
+                }
+                selectedTimestamp = localCal.timeInMillis
+              }
               showDatePicker = false
             }
           ) {
@@ -378,6 +425,37 @@ fun AddExpenseSheet(
         }
       ) {
         DatePicker(state = datePickerState)
+      }
+    }
+
+    if (showTimePicker) {
+      val calendar = remember(selectedTimestamp) {
+        java.util.Calendar.getInstance().apply { timeInMillis = selectedTimestamp }
+      }
+      val hour = calendar.get(java.util.Calendar.HOUR_OF_DAY)
+      val minute = calendar.get(java.util.Calendar.MINUTE)
+      val is24Hour = android.text.format.DateFormat.is24HourFormat(context)
+
+      val timePickerDialog = android.app.TimePickerDialog(
+        context,
+        { _, selectedHour, selectedMinute ->
+          calendar.set(java.util.Calendar.HOUR_OF_DAY, selectedHour)
+          calendar.set(java.util.Calendar.MINUTE, selectedMinute)
+          calendar.set(java.util.Calendar.SECOND, 0)
+          calendar.set(java.util.Calendar.MILLISECOND, 0)
+          selectedTimestamp = calendar.timeInMillis
+          showTimePicker = false
+        },
+        hour,
+        minute,
+        is24Hour
+      )
+      timePickerDialog.setOnDismissListener {
+        showTimePicker = false
+      }
+
+      LaunchedEffect(Unit) {
+        timePickerDialog.show()
       }
     }
   }

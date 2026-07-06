@@ -11,7 +11,7 @@ android {
     namespace = "com.example.chobi"
     compileSdk = 36
     defaultConfig {
-        applicationId = "com.example.chobi"
+        applicationId = "mrndstvndv.me.chobi"
         minSdk = 24
         targetSdk = 36
         versionCode = 1
@@ -43,6 +43,9 @@ android {
             if (keystorePropertiesFile.exists()) {
                 signingConfig = signingConfigs.getByName("release")
             }
+        }
+        debug {
+            applicationIdSuffix = ".debug"
         }
     }
     compileOptions {

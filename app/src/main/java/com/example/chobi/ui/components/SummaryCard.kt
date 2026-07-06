@@ -230,7 +230,7 @@ fun SummaryCard(
               OdometerText(
                 amount = absRemaining,
                 text = (if (remaining < 0) "-" else "") + currencyFormatter.format(absRemaining),
-                style = MaterialTheme.typography.headlineLarge.copy(
+                style = MaterialTheme.typography.displaySmall.copy(
                   fontWeight = FontWeight.Bold
                 ),
                 color = remainingColor
@@ -306,7 +306,7 @@ fun SummaryCard(
               OdometerText(
                 amount = absAmount,
                 text = currencyFormatter.format(absAmount),
-                style = MaterialTheme.typography.headlineLarge.copy(
+                style = MaterialTheme.typography.displaySmall.copy(
                   fontWeight = FontWeight.Bold
                 ),
                 color = MaterialTheme.colorScheme.onPrimaryContainer

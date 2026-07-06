@@ -152,6 +152,7 @@ fun AddExpenseSheet(
     OutlinedTextField(
       value = amountStr,
       onValueChange = { amountStr = it },
+      textStyle = MaterialTheme.typography.headlineSmall,
       label = { Text("Amount") },
       prefix = { Text(currencySymbol) },
       keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),

@@ -29,6 +29,7 @@ import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
+import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
@@ -58,6 +59,8 @@ fun isValidCurrencyCode(code: String): Boolean {
 val android.content.Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "chobi_settings")
 val CURRENCY_KEY = stringPreferencesKey("currency_code")
 val TIME_FORMAT_KEY = stringPreferencesKey("time_format")
+val DYNAMIC_COLOR_KEY = booleanPreferencesKey("dynamic_color")
+val THEME_MODE_KEY = stringPreferencesKey("theme_mode")
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -318,6 +321,113 @@ fun MainScreen(
             color = MaterialTheme.colorScheme.onSurfaceVariant
           )
           
+          HorizontalDivider()
+
+          // THEME SECTION
+          Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text(
+              text = "Theme Preference",
+              style = MaterialTheme.typography.titleMedium,
+              color = MaterialTheme.colorScheme.primary
+            )
+            Text(
+              text = "Choose color palette style:",
+              style = MaterialTheme.typography.bodySmall,
+              color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+
+            val dynamicFlow = remember(context) {
+              context.dataStore.data.map { preferences ->
+                preferences[DYNAMIC_COLOR_KEY] ?: false
+              }
+            }
+            val dynamicColorSelected by dynamicFlow.collectAsStateWithLifecycle(initialValue = false)
+
+            SingleChoiceSegmentedButtonRow(
+              modifier = Modifier.fillMaxWidth()
+            ) {
+              SegmentedButton(
+                selected = !dynamicColorSelected,
+                onClick = {
+                  coroutineScope.launch {
+                    context.dataStore.edit { preferences ->
+                      preferences[DYNAMIC_COLOR_KEY] = false
+                    }
+                  }
+                },
+                shape = SegmentedButtonDefaults.itemShape(index = 0, count = 2),
+                label = { Text("Branded") }
+              )
+              SegmentedButton(
+                selected = dynamicColorSelected,
+                onClick = {
+                  coroutineScope.launch {
+                    context.dataStore.edit { preferences ->
+                      preferences[DYNAMIC_COLOR_KEY] = true
+                    }
+                  }
+                },
+                shape = SegmentedButtonDefaults.itemShape(index = 1, count = 2),
+                label = { Text("Material You") }
+              )
+            }
+
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+              text = "Choose theme mode:",
+              style = MaterialTheme.typography.bodySmall,
+              color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+
+            val modeFlow = remember(context) {
+              context.dataStore.data.map { preferences ->
+                preferences[THEME_MODE_KEY] ?: "system"
+              }
+            }
+            val themeModeSelected by modeFlow.collectAsStateWithLifecycle(initialValue = "system")
+
+            SingleChoiceSegmentedButtonRow(
+              modifier = Modifier.fillMaxWidth()
+            ) {
+              SegmentedButton(
+                selected = themeModeSelected == "light",
+                onClick = {
+                  coroutineScope.launch {
+                    context.dataStore.edit { preferences ->
+                      preferences[THEME_MODE_KEY] = "light"
+                    }
+                  }
+                },
+                shape = SegmentedButtonDefaults.itemShape(index = 0, count = 3),
+                label = { Text("Light") }
+              )
+              SegmentedButton(
+                selected = themeModeSelected == "dark",
+                onClick = {
+                  coroutineScope.launch {
+                    context.dataStore.edit { preferences ->
+                      preferences[THEME_MODE_KEY] = "dark"
+                    }
+                  }
+                },
+                shape = SegmentedButtonDefaults.itemShape(index = 1, count = 3),
+                label = { Text("Dark") }
+              )
+              SegmentedButton(
+                selected = themeModeSelected == "system",
+                onClick = {
+                  coroutineScope.launch {
+                    context.dataStore.edit { preferences ->
+                      preferences[THEME_MODE_KEY] = "system"
+                    }
+                  }
+                },
+                shape = SegmentedButtonDefaults.itemShape(index = 2, count = 3),
+                label = { Text("Auto") }
+              )
+            }
+          }
+
           HorizontalDivider()
 
           // CURRENCY SECTION

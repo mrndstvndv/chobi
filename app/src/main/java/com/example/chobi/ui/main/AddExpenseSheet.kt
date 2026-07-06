@@ -93,8 +93,10 @@ fun AddExpenseSheet(
   val focusRequester = remember { FocusRequester() }
 
   LaunchedEffect(Unit) {
-    kotlinx.coroutines.delay(250)
-    focusRequester.requestFocus()
+    if (expenseToEdit == null) {
+      kotlinx.coroutines.delay(250)
+      focusRequester.requestFocus()
+    }
   }
 
   Column(

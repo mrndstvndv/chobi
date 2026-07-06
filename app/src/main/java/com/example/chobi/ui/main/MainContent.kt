@@ -92,7 +92,7 @@ fun MainContent(
         currencyFormatter = currencyFormatter,
         modifier = Modifier
           .fillMaxWidth()
-          .padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 8.dp)
+          .padding(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 8.dp)
       )
     }
 
@@ -118,7 +118,7 @@ fun MainContent(
           Row(
             modifier = Modifier
               .fillMaxWidth()
-              .padding(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 4.dp),
+              .padding(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 12.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
           ) {
@@ -155,6 +155,8 @@ fun MainContent(
             timeFormatPreference = timeFormatPreference,
             onClick = { onExpenseClick?.invoke(expense) },
             shapes = ListItemDefaults.segmentedShapes(index, itemsForHeader.size),
+            index = index,
+            count = itemsForHeader.size,
             modifier = Modifier
               .animateItem()
               .padding(horizontal = 16.dp)

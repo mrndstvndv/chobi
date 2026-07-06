@@ -30,6 +30,7 @@ import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.unit.dp
 import com.example.chobi.data.Category
 import com.example.chobi.data.CategoryIcons
@@ -123,6 +124,7 @@ fun AddExpenseSheet(
         fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold,
         color = MaterialTheme.colorScheme.onSurface
       ),
+      cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
       modifier = Modifier
         .fillMaxWidth()
         .padding(horizontal = 0.dp)
@@ -262,10 +264,7 @@ fun AddExpenseSheet(
 
         val scale by animateFloatAsState(
           targetValue = if (selected) 1.06f else 1.0f,
-          animationSpec = spring(
-            dampingRatio = 0.55f,
-            stiffness = 500f
-          ),
+          animationSpec = MaterialTheme.motionScheme.fastSpatialSpec(),
           label = "chip_scale"
         )
 

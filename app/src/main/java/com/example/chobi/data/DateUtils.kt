@@ -1,8 +1,5 @@
 package com.example.chobi.data
 
-import java.text.SimpleDateFormat
-import java.util.Calendar
-import java.util.Date
 import java.util.Locale
 
 /**
@@ -10,37 +7,19 @@ import java.util.Locale
  * Declared as a top-level function, which compiles to a static method under the hood in JVM.
  */
 fun getGroupHeader(timestamp: Long): String {
-    val now = Calendar.getInstance()
-    val today = Calendar.getInstance().apply {
-        set(Calendar.HOUR_OF_DAY, 0)
-        set(Calendar.MINUTE, 0)
-        set(Calendar.SECOND, 0)
-        set(Calendar.MILLISECOND, 0)
-    }
-
-    val yesterday = Calendar.getInstance().apply {
-        timeInMillis = today.timeInMillis
-        add(Calendar.DAY_OF_YEAR, -1)
-    }
-
-    val itemDay = Calendar.getInstance().apply {
-        timeInMillis = timestamp
-        set(Calendar.HOUR_OF_DAY, 0)
-        set(Calendar.MINUTE, 0)
-        set(Calendar.SECOND, 0)
-        set(Calendar.MILLISECOND, 0)
-    }
+    val zoneId = java.time.ZoneId.systemDefault()
+    val today = java.time.LocalDate.now(zoneId)
+    val itemDate = java.time.Instant.ofEpochMilli(timestamp).atZone(zoneId).toLocalDate()
 
     return when {
-        itemDay.timeInMillis == today.timeInMillis -> "Today"
-        itemDay.timeInMillis == yesterday.timeInMillis -> "Yesterday"
-        now.timeInMillis - timestamp < 7 * 24 * 60 * 60 * 1000L && now.timeInMillis >= timestamp -> {
-            val dayFormat = SimpleDateFormat("EEEE", Locale.getDefault())
-            dayFormat.format(Date(timestamp))
+        itemDate == today -> "Today"
+        itemDate == today.minusDays(1) -> "Yesterday"
+        itemDate.isBefore(today) && java.time.temporal.ChronoUnit.DAYS.between(itemDate, today) < 7 -> {
+            itemDate.dayOfWeek.getDisplayName(java.time.format.TextStyle.FULL, Locale.getDefault())
         }
         else -> {
-            val dateFormat = SimpleDateFormat("MMM dd, yyyy", Locale.getDefault())
-            dateFormat.format(Date(timestamp))
+            val formatter = java.time.format.DateTimeFormatter.ofPattern("MMM dd, yyyy", Locale.getDefault())
+            itemDate.format(formatter)
         }
     }
 }

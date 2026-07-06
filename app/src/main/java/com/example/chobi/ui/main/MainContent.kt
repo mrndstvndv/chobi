@@ -48,7 +48,7 @@ fun MainContent(
     }
   }
 
-  val totalAmount = filteredExpenses.sumOf { it.amount }
+  val totalAmount = remember(filteredExpenses) { filteredExpenses.sumOf { it.amount } }
   val currencyFormatter = remember(currencyCode) {
     try {
       val icuCurrency = android.icu.util.Currency.getInstance(currencyCode)

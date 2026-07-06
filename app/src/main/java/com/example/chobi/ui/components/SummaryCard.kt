@@ -358,19 +358,16 @@ fun MiniTrendChart(
   lineColor: Color = MaterialTheme.colorScheme.onPrimary
 ) {
   val dailyTotals = remember(expenses) {
-    val now = System.currentTimeMillis()
-    val dayMillis = 24 * 60 * 60 * 1000L
-    (0..6).map { dayOffset ->
-      val targetDayStart = now - (dayOffset * dayMillis)
-      val calendar = java.util.Calendar.getInstance().apply { timeInMillis = targetDayStart }
-      val year = calendar.get(java.util.Calendar.YEAR)
-      val dayOfYear = calendar.get(java.util.Calendar.DAY_OF_YEAR)
+    val zoneId = java.time.ZoneId.systemDefault()
+    val today = java.time.LocalDate.now(zoneId)
+    val dailySums = expenses
+      .filter { it.amount > 0 }
+      .groupBy { java.time.Instant.ofEpochMilli(it.timestamp).atZone(zoneId).toLocalDate() }
+      .mapValues { (_, list) -> list.sumOf { it.amount }.toFloat() }
 
-      val totalForDay = expenses.filter { exp ->
-        val expCal = java.util.Calendar.getInstance().apply { timeInMillis = exp.timestamp }
-        expCal.get(java.util.Calendar.YEAR) == year && expCal.get(java.util.Calendar.DAY_OF_YEAR) == dayOfYear
-      }.sumOf { if (it.amount < 0) 0.0 else it.amount }
-      totalForDay.toFloat()
+    (0..6).map { dayOffset ->
+      val date = today.minusDays(dayOffset.toLong())
+      dailySums[date] ?: 0f
     }.reversed()
   }
 

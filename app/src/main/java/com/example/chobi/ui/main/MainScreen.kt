@@ -17,6 +17,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import com.example.chobi.ui.components.toColor
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation3.runtime.NavKey
@@ -39,14 +40,7 @@ enum class ImportType {
   JSON, SQLITE
 }
 
-// Helper to convert hex string to Compose Color
-fun String.toColor(): Color {
-    return try {
-        Color(android.graphics.Color.parseColor(this))
-    } catch (e: Exception) {
-        Color.Gray
-    }
-}
+
 
 fun isValidCurrencyCode(code: String): Boolean {
     return try {
@@ -247,7 +241,7 @@ fun MainScreen(
               expenseToEdit = null
               showBottomSheet = false
             },
-            sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+            sheetState = rememberBottomSheetState(skipPartiallyExpanded = true, initialValue = SheetValue.Hidden)
           ) {
             AddExpenseSheet(
               categories = success.categories,

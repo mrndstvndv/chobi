@@ -4,6 +4,7 @@ import com.example.chobi.data.Budget
 import com.example.chobi.data.Category
 import com.example.chobi.data.Expense
 import com.example.chobi.data.ExpenseRepository
+import androidx.compose.material3.SnackbarResult
 import junit.framework.TestCase.assertEquals
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -76,6 +77,60 @@ class MainScreenViewModelTest {
     assertEquals(budgetId, successState.expenses[0].budgetId)
     
     collectJob.cancel()
+  }
+
+  @Test
+  fun snackbarQueue_processesSequentiallyWithoutDelay() = runTest {
+    val repository = FakeExpenseRepository()
+    val viewModel = MainScreenViewModel(repository)
+
+    val expense1 = Expense(id = 1L, title = "Lunch", amount = 15.50, category = "Food", timestamp = 0L)
+    val expense2 = Expense(id = 2L, title = "Coffee", amount = 4.50, category = "Food", timestamp = 0L)
+
+    viewModel.swipeToDelete(expense1)
+    viewModel.swipeToDelete(expense2)
+
+    // The newly deleted item (expense2) should be displayed immediately
+    assertEquals(expense2, viewModel.currentSnackbar.value)
+
+    // Report result for expense2
+    viewModel.reportSnackbarResult(SnackbarResult.Dismissed)
+
+    // The previous item (expense1) from the stack/queue should now be shown
+    val nextSnackbar = viewModel.currentSnackbar.first { it == expense1 }
+    assertEquals(expense1, nextSnackbar)
+
+    // Report result for expense1
+    viewModel.reportSnackbarResult(SnackbarResult.Dismissed)
+
+    // Queue is empty, should be null
+    val finalSnackbar = viewModel.currentSnackbar.first { it == null }
+    assertEquals(null, finalSnackbar)
+  }
+
+  @Test
+  fun onCleared_deletesPendingDeletionsFromRepository() = runTest {
+    val repository = FakeExpenseRepository()
+    val viewModel = MainScreenViewModel(repository)
+
+    val expense = Expense(id = 1L, title = "Lunch", amount = 15.50, category = "Food", timestamp = 0L)
+    repository.insertExpense(expense)
+    
+    // Verify it is in DB initially
+    assertEquals(1, repository.getAllExpenses().first().size)
+
+    // Swipe to delete (adds to pending deletions)
+    viewModel.swipeToDelete(expense)
+    assertEquals(1, repository.getAllExpenses().first().size)
+
+    // Invoke onCleared via reflection
+    val method = MainScreenViewModel::class.java.getDeclaredMethod("onCleared")
+    method.isAccessible = true
+    method.invoke(viewModel)
+
+    // Wait for the deletion to be processed in the background CoroutineScope
+    val remainingExpenses = repository.getAllExpenses().first { it.isEmpty() }
+    assertEquals(0, remainingExpenses.size)
   }
 }
 

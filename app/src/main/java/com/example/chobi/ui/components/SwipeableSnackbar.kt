@@ -1,7 +1,7 @@
 package com.example.chobi.ui.components
 
+import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.LinearEasing
-import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.*
@@ -25,16 +25,13 @@ fun SwipeableSnackbar(
   modifier: Modifier = Modifier
 ) {
   key(data) {
-    var targetProgress by remember { mutableStateOf(1f) }
-    val progress by animateFloatAsState(
-      targetValue = targetProgress,
-      animationSpec = tween(durationMillis = 4000, easing = LinearEasing),
-      label = "snackbarProgress"
-    )
+    val progress = remember { Animatable(1f) }
 
     LaunchedEffect(data) {
-      targetProgress = 0f
-      delay(4000L)
+      progress.animateTo(
+        targetValue = 0f,
+        animationSpec = tween(durationMillis = 4000, easing = LinearEasing)
+      )
       data.dismiss()
     }
 
@@ -80,7 +77,7 @@ fun SwipeableSnackbar(
                 contentAlignment = Alignment.Center
               ) {
                 CircularProgressIndicator(
-                  progress = { progress },
+                  progress = { progress.value },
                   modifier = Modifier.fillMaxSize(),
                   color = MaterialTheme.colorScheme.primary,
                   trackColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f),

@@ -52,12 +52,10 @@ class MainScreenViewModel(private val expenseRepository: ExpenseRepository) : Vi
         SnackbarResult.Dismissed -> confirmDeletion(pending.id)
       }
 
-      _currentSnackbar.value = null
-      delay(400L)
-
       if (snackbarQueue.isNotEmpty()) {
         _currentSnackbar.value = snackbarQueue.removeAt(0)
       } else {
+        _currentSnackbar.value = null
         isSnackbarActive = false
       }
     }
@@ -110,7 +108,10 @@ class MainScreenViewModel(private val expenseRepository: ExpenseRepository) : Vi
   fun swipeToDelete(expense: Expense) {
     _pendingDeletions[expense.id] = expense
     if (isSnackbarActive) {
-      snackbarQueue.add(expense)
+      _currentSnackbar.value?.let { current ->
+        snackbarQueue.add(0, current)
+      }
+      _currentSnackbar.value = expense
     } else {
       isSnackbarActive = true
       _currentSnackbar.value = expense
@@ -291,6 +292,18 @@ class MainScreenViewModel(private val expenseRepository: ExpenseRepository) : Vi
       } catch (e: Exception) {
         withContext(Dispatchers.Main) {
           onError(e)
+        }
+      }
+    }
+  }
+
+  override fun onCleared() {
+    super.onCleared()
+    val remaining = _pendingDeletions.values.toList()
+    if (remaining.isNotEmpty()) {
+      kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).launch {
+        remaining.forEach { expense ->
+          expenseRepository.deleteExpense(expense)
         }
       }
     }

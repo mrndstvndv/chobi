@@ -1,7 +1,6 @@
 package com.example.chobi.ui.components
 
 import android.icu.text.NumberFormat
-import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 
 import androidx.compose.foundation.layout.*
@@ -29,10 +28,10 @@ import java.util.Date
 import java.util.Locale
 
 @OptIn(
-  ExperimentalFoundationApi::class,
   ExperimentalMaterial3Api::class,
   ExperimentalMaterial3ExpressiveApi::class
 )
+@Suppress("DEPRECATION")
 @Composable
 fun ExpenseItem(
   expense: Expense,
@@ -58,28 +57,31 @@ fun ExpenseItem(
   val icon = category?.let { CategoryIcons.getIcon(it.iconName) } ?: Icons.Default.Star
   val iconColor = category?.colorHex?.toColor() ?: MaterialTheme.colorScheme.primary
 
-  val dismissState = rememberSwipeToDismissBoxState()
+  val dismissState = rememberSwipeToDismissBoxState(
+    confirmValueChange = { value ->
+      if (value != SwipeToDismissBoxValue.Settled) {
+        onDelete()
+      }
+      false
+    }
+  )
   val isSwiping = dismissState.dismissDirection != SwipeToDismissBoxValue.Settled
 
   val isTop = index == 0
   val isBottom = index == count - 1
   val isSingle = count == 1
 
-  val targetTopStart = if (isSwiping || isTop || isSingle) 16.dp else 0.dp
-  val targetTopEnd = if (isSwiping || isTop || isSingle) 16.dp else 0.dp
-  val targetBottomStart = if (isSwiping || isBottom || isSingle) 16.dp else 0.dp
-  val targetBottomEnd = if (isSwiping || isBottom || isSingle) 16.dp else 0.dp
+  val targetTop = if (isSwiping || isTop || isSingle) 16.dp else 0.dp
+  val targetBottom = if (isSwiping || isBottom || isSingle) 16.dp else 0.dp
 
-  val animatedTopStart by animateDpAsState(targetValue = targetTopStart, label = "topStart")
-  val animatedTopEnd by animateDpAsState(targetValue = targetTopEnd, label = "topEnd")
-  val animatedBottomStart by animateDpAsState(targetValue = targetBottomStart, label = "bottomStart")
-  val animatedBottomEnd by animateDpAsState(targetValue = targetBottomEnd, label = "bottomEnd")
+  val animatedTop by animateDpAsState(targetValue = targetTop, label = "topCorner")
+  val animatedBottom by animateDpAsState(targetValue = targetBottom, label = "bottomCorner")
 
   val currentShape = RoundedCornerShape(
-    topStart = animatedTopStart,
-    topEnd = animatedTopEnd,
-    bottomStart = animatedBottomStart,
-    bottomEnd = animatedBottomEnd
+    topStart = animatedTop,
+    topEnd = animatedTop,
+    bottomStart = animatedBottom,
+    bottomEnd = animatedBottom
   )
 
   val animatedShapes = ListItemDefaults.shapes(
@@ -93,7 +95,6 @@ fun ExpenseItem(
 
   SwipeToDismissBox(
     state = dismissState,
-    onDismiss = { value -> onDelete() },
     modifier = modifier
       .fillMaxWidth()
       .clip(currentShape),

@@ -12,12 +12,12 @@ import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import com.example.chobi.ui.components.SwipeableSnackbar
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
-import com.example.chobi.ui.components.toColor
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation3.runtime.NavKey
@@ -42,12 +42,10 @@ enum class ImportType {
 
 
 
-fun isValidCurrencyCode(code: String): Boolean {
-    return try {
-        android.icu.util.Currency.getInstance(code) != null
-    } catch (e: Exception) {
-        false
-    }
+fun isValidCurrencyCode(code: String): Boolean = try {
+    android.icu.util.Currency.getInstance(code) != null
+} catch (e: Exception) {
+    false
 }
 
 val android.content.Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "chobi_settings")
@@ -57,6 +55,7 @@ val DYNAMIC_COLOR_KEY = booleanPreferencesKey("dynamic_color")
 val THEME_MODE_KEY = stringPreferencesKey("theme_mode")
 
 @OptIn(ExperimentalMaterial3Api::class)
+@Suppress("DEPRECATION")
 @Composable
 fun MainScreen(
   onItemClick: (NavKey) -> Unit,
@@ -64,6 +63,7 @@ fun MainScreen(
 ) {
   val context = LocalContext.current
   val coroutineScope = rememberCoroutineScope()
+  val snackbarHostState = remember { SnackbarHostState() }
   
   val currencyFlow = remember(context) {
     context.dataStore.data.map { preferences ->
@@ -88,6 +88,18 @@ fun MainScreen(
     MainScreenViewModel(app.expenseRepository)
   }
   val state by viewModel.uiState.collectAsStateWithLifecycle()
+  val currentSnackbar by viewModel.currentSnackbar.collectAsStateWithLifecycle()
+
+  LaunchedEffect(currentSnackbar) {
+    val pending = currentSnackbar ?: return@LaunchedEffect
+
+    val result = snackbarHostState.showSnackbar(
+      message = "Deleted \"${pending.title}\"",
+      actionLabel = "Undo",
+      duration = SnackbarDuration.Indefinite
+    )
+    viewModel.reportSnackbarResult(result)
+  }
   var showBottomSheet by remember { mutableStateOf(false) }
   var showSettingsDialog by remember { mutableStateOf(false) }
   var expenseToEdit by remember { mutableStateOf<Expense?>(null) }
@@ -166,6 +178,17 @@ fun MainScreen(
   }
 
   Scaffold(
+    snackbarHost = {
+      SnackbarHost(snackbarHostState) { data ->
+        Box(
+          modifier = Modifier
+            .padding(16.dp)
+            .navigationBarsPadding()
+        ) {
+          SwipeableSnackbar(data = data)
+        }
+      }
+    },
     topBar = {
       TopAppBar(
         title = { Text("Chobi", style = MaterialTheme.typography.titleLarge) },
@@ -216,7 +239,7 @@ fun MainScreen(
           selectedBudget = selectedBudget,
           onSelectBudget = { selectedBudget = it },
           onDeleteExpense = { expense ->
-            viewModel.deleteExpense(expense)
+            viewModel.swipeToDelete(expense)
           },
           onCreateBudget = { title, limit ->
             viewModel.createNewBudget(title, limit)

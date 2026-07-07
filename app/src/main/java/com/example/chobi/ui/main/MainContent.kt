@@ -40,20 +40,14 @@ fun MainContent(
   var showBudgetDialog by remember { mutableStateOf(false) }
 
   val filteredExpenses = remember(expenses, selectedBudget) {
-    val currentBudget = selectedBudget
-    if (currentBudget == null) {
-      expenses
-    } else {
-      expenses.filter { it.budgetId == currentBudget.id }
-    }
+    if (selectedBudget == null) expenses else expenses.filter { it.budgetId == selectedBudget.id }
   }
 
   val totalAmount = remember(filteredExpenses) { filteredExpenses.sumOf { it.amount } }
   val currencyFormatter = remember(currencyCode) {
     try {
-      val icuCurrency = android.icu.util.Currency.getInstance(currencyCode)
       NumberFormat.getCurrencyInstance(Locale.getDefault()).apply {
-        currency = icuCurrency
+        currency = android.icu.util.Currency.getInstance(currencyCode)
       }
     } catch (e: Exception) {
       NumberFormat.getCurrencyInstance(Locale.getDefault())
@@ -62,6 +56,7 @@ fun MainContent(
 
   val groupedExpenses = remember(filteredExpenses) {
     filteredExpenses.groupBy { getGroupHeader(it.timestamp) }
+      .mapValues { (_, items) -> items to items.sumOf { it.amount } }
   }
 
   if (showBudgetDialog) {
@@ -112,11 +107,12 @@ fun MainContent(
         }
       }
     } else {
-      groupedExpenses.forEach { (header, itemsForHeader) ->
+      groupedExpenses.forEach { (header, pair) ->
+        val (itemsForHeader, dayTotal) = pair
         item(key = "header_$header") {
-          val dayTotal = remember(itemsForHeader) { itemsForHeader.sumOf { it.amount } }
           Row(
             modifier = Modifier
+              .animateItem()
               .fillMaxWidth()
               .padding(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 12.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
@@ -128,16 +124,8 @@ fun MainContent(
               color = MaterialTheme.colorScheme.primary
             )
             val isDayIncome = dayTotal < 0
-            val dayDisplay = if (isDayIncome) {
-              "+" + currencyFormatter.format(kotlin.math.abs(dayTotal))
-            } else {
-              currencyFormatter.format(dayTotal)
-            }
-            val dayColor = if (isDayIncome) {
-              androidx.compose.ui.graphics.Color(0xFF2E7D32)
-            } else {
-              MaterialTheme.colorScheme.onSurfaceVariant
-            }
+            val dayDisplay = if (isDayIncome) "+${currencyFormatter.format(-dayTotal)}" else currencyFormatter.format(dayTotal)
+            val dayColor = if (isDayIncome) androidx.compose.ui.graphics.Color(0xFF2E7D32) else MaterialTheme.colorScheme.onSurfaceVariant
             Text(
               text = dayDisplay,
               style = MaterialTheme.typography.titleMedium,

@@ -1,9 +1,9 @@
 package com.example.chobi.ui.components
 
-import androidx.compose.animation.*
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.spring
+
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
 import androidx.compose.material3.Text
@@ -11,6 +11,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.text.TextStyle
@@ -34,19 +35,19 @@ fun OdometerText(
     color: Color,
     modifier: Modifier = Modifier
 ) {
-    var previousAmount by remember { mutableStateOf(amount) }
-    val isIncrease = amount >= previousAmount
+    // Non-state holder avoids triggering a spurious recomposition when updating previousAmount
+    val previousAmountRef = remember { doubleArrayOf(amount) }
+    val isIncrease = amount >= previousAmountRef[0]
 
-    LaunchedEffect(amount) {
-        previousAmount = amount
-    }
+    // SideEffect runs after successful composition, updating the ref without invalidating any scopes
+    SideEffect { previousAmountRef[0] = amount }
 
     val (prefix, body, suffix) = remember(text) {
         splitFormattedCurrency(text)
     }
 
     Row(
-        modifier = modifier.animateContentSize(),
+        modifier = modifier,
         horizontalArrangement = Arrangement.Center,
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -110,61 +111,79 @@ private fun AnimatedDigit(
     val digit = char.digitToInt()
     val animatable = remember { Animatable(digit.toFloat()) }
 
-    LaunchedEffect(digit) {
-        val currentVal = animatable.value
-        val currentDigit = (currentVal.roundToInt() % 10 + 10) % 10
-        if (digit != currentDigit) {
-            // Stagger delay from right-to-left
-            delay(key * 45L)
-            
-            var target = digit.toFloat()
-            if (isIncrease && digit < currentDigit) {
-                target += 10f
-            } else if (!isIncrease && digit > currentDigit) {
-                target -= 10f
+    val currentTargetDigit by rememberUpdatedState(digit)
+    val currentIsIncrease by rememberUpdatedState(isIncrease)
+
+    LaunchedEffect(key) {
+        snapshotFlow { currentTargetDigit }.collect { targetDigit ->
+            val freshIsIncrease = currentIsIncrease
+            val currentVal = animatable.value
+            val currentDigit = (currentVal.roundToInt() % 10 + 10) % 10
+            if (targetDigit != currentDigit) {
+                // Stagger delay from right-to-left
+                delay(key * 45L)
+                
+                // Re-evaluate current state after delay
+                val freshVal = animatable.value
+                val freshDigit = (freshVal.roundToInt() % 10 + 10) % 10
+                
+                if (targetDigit != freshDigit) {
+                    var target = targetDigit.toFloat()
+                    if (freshIsIncrease && targetDigit < freshDigit) {
+                        target += 10f
+                    } else if (!freshIsIncrease && targetDigit > freshDigit) {
+                        target -= 10f
+                    }
+                    
+                    animatable.animateTo(
+                        targetValue = target,
+                        animationSpec = spring(
+                            dampingRatio = Spring.DampingRatioLowBouncy, // subtle overshoot bounce
+                            stiffness = Spring.StiffnessMediumLow         // smooth fluid speed
+                        )
+                    )
+                    
+                    // Snap back to base range [0, 9] to keep float values small
+                    val finalDigit = (target.roundToInt() % 10 + 10) % 10
+                    animatable.snapTo(finalDigit.toFloat())
+                }
             }
-            
-            animatable.animateTo(
-                targetValue = target,
-                animationSpec = spring(
-                    dampingRatio = Spring.DampingRatioLowBouncy, // subtle overshoot bounce
-                    stiffness = Spring.StiffnessMediumLow         // smooth fluid speed
-                )
-            )
-            
-            // Snap back to base range [0, 9] to keep float values small
-            val finalDigit = (target.roundToInt() % 10 + 10) % 10
-            animatable.snapTo(finalDigit.toFloat())
         }
     }
 
     val minIndex = -11
     val maxIndex = 20
+    var digitHeightState by remember { mutableStateOf(0) }
 
     Layout(
-        modifier = Modifier.clipToBounds(),
+        modifier = Modifier
+            .clipToBounds()
+            .graphicsLayer {
+                // Reading animatable.value here runs in the DRAW phase only,
+                // avoiding the per-frame placement pass that was causing the UI freeze.
+                translationY = -animatable.value * digitHeightState
+            },
         content = {
             for (i in minIndex..maxIndex) {
                 val d = (i % 10 + 10) % 10
-                Text(
-                    text = d.toString(),
-                    style = style,
-                    color = color,
-                    softWrap = false
-                )
+                Text(text = d.toString(), style = style, color = color, softWrap = false)
             }
         }
     ) { measurables, constraints ->
         val placeables = measurables.map { it.measure(constraints) }
         val digitWidth = placeables.firstOrNull()?.width ?: 0
         val digitHeight = placeables.firstOrNull()?.height ?: 0
+        
+        if (digitHeightState != digitHeight) {
+            digitHeightState = digitHeight
+        }
 
         layout(digitWidth, digitHeight) {
-            val currentValue = animatable.value
+            // Static placement — no state reads here. The scrolling effect
+            // comes entirely from graphicsLayer.translationY above.
             placeables.forEachIndexed { idx, placeable ->
                 val layoutIndex = idx + minIndex
-                val yOffset = ((layoutIndex - currentValue) * digitHeight).roundToInt()
-                placeable.placeRelative(0, yOffset)
+                placeable.placeRelative(0, layoutIndex * digitHeight)
             }
         }
     }

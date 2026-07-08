@@ -13,7 +13,7 @@ import androidx.compose.ui.unit.dp
 import com.example.chobi.data.Budget
 import com.example.chobi.data.Category
 import com.example.chobi.data.Expense
-import com.example.chobi.data.getGroupHeader
+
 import com.example.chobi.theme.ChobiTheme
 import com.example.chobi.ui.components.ExpenseItem
 import com.example.chobi.ui.components.SummaryCard
@@ -54,9 +54,29 @@ fun MainContent(
     }
   }
 
+  // Cache timezone and date to avoid per-item lookups (ZoneId.systemDefault() acquires internal locks)
   val groupedExpenses = remember(filteredExpenses) {
-    filteredExpenses.groupBy { getGroupHeader(it.timestamp) }
-      .mapValues { (_, items) -> items to items.sumOf { it.amount } }
+    val zoneId = java.time.ZoneId.systemDefault()
+    val today = java.time.LocalDate.now(zoneId)
+    filteredExpenses.groupBy { expense ->
+      val itemDate = java.time.Instant.ofEpochMilli(expense.timestamp).atZone(zoneId).toLocalDate()
+      when {
+        itemDate == today -> "Today"
+        itemDate == today.minusDays(1) -> "Yesterday"
+        itemDate.isBefore(today) && java.time.temporal.ChronoUnit.DAYS.between(itemDate, today) < 7 -> {
+          itemDate.dayOfWeek.getDisplayName(java.time.format.TextStyle.FULL, Locale.getDefault())
+        }
+        else -> {
+          val formatter = java.time.format.DateTimeFormatter.ofPattern("MMM dd, yyyy", Locale.getDefault())
+          itemDate.format(formatter)
+        }
+      }
+    }.mapValues { (_, items) -> items to items.sumOf { it.amount } }
+  }
+
+  // O(1) category lookup instead of O(n) firstOrNull per expense
+  val categoryMap = remember(categories) {
+    categories.associateBy { it.name.lowercase() }
   }
 
   if (showBudgetDialog) {
@@ -134,7 +154,7 @@ fun MainContent(
           }
         }
         itemsIndexed(itemsForHeader, key = { _, it -> it.id }) { index, expense ->
-          val matchingCategory = categories.firstOrNull { it.name.lowercase() == expense.category.lowercase() }
+          val matchingCategory = categoryMap[expense.category.lowercase()]
           ExpenseItem(
             expense = expense,
             category = matchingCategory,

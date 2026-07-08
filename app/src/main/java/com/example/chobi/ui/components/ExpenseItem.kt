@@ -13,8 +13,7 @@ import androidx.compose.material3.*
 import androidx.compose.ui.graphics.Color
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.getValue
-import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -26,6 +25,7 @@ import com.example.chobi.data.Expense
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import kotlinx.coroutines.launch
 
 @OptIn(
   ExperimentalMaterial3Api::class,
@@ -56,35 +56,31 @@ fun ExpenseItem(
   }
   val icon = category?.let { CategoryIcons.getIcon(it.iconName) } ?: Icons.Default.Star
   val iconColor = category?.colorHex?.toColor() ?: MaterialTheme.colorScheme.primary
+  val coroutineScope = rememberCoroutineScope()
 
   val dismissState = rememberSwipeToDismissBoxState(
     confirmValueChange = { value ->
       if (value != SwipeToDismissBoxValue.Settled) {
-        onDelete()
+        coroutineScope.launch { onDelete() }
       }
       false
     }
   )
-  val isSwiping = dismissState.dismissDirection != SwipeToDismissBoxValue.Settled
-
   val isTop = index == 0
   val isBottom = index == count - 1
   val isSingle = count == 1
 
-  val targetTop = if (isSwiping || isTop || isSingle) 16.dp else 0.dp
-  val targetBottom = if (isSwiping || isBottom || isSingle) 16.dp else 0.dp
-
-  val animatedTop by animateDpAsState(targetValue = targetTop, label = "topCorner")
-  val animatedBottom by animateDpAsState(targetValue = targetBottom, label = "bottomCorner")
+  val topCorner = if (isTop || isSingle) 16.dp else 0.dp
+  val bottomCorner = if (isBottom || isSingle) 16.dp else 0.dp
 
   val currentShape = RoundedCornerShape(
-    topStart = animatedTop,
-    topEnd = animatedTop,
-    bottomStart = animatedBottom,
-    bottomEnd = animatedBottom
+    topStart = topCorner,
+    topEnd = topCorner,
+    bottomStart = bottomCorner,
+    bottomEnd = bottomCorner
   )
 
-  val animatedShapes = ListItemDefaults.shapes(
+  val staticShapes = ListItemDefaults.shapes(
     shape = currentShape,
     pressedShape = currentShape,
     focusedShape = currentShape,
@@ -131,7 +127,7 @@ fun ExpenseItem(
     content = {
       SegmentedListItem(
         onClick = { onClick?.invoke() },
-        shapes = animatedShapes,
+        shapes = staticShapes,
         onLongClick = onLongClick,
         colors = ListItemDefaults.segmentedColors(
           containerColor = MaterialTheme.colorScheme.surfaceContainer

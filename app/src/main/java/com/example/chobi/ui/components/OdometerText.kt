@@ -153,7 +153,6 @@ private fun AnimatedDigit(
 
     val minIndex = -11
     val maxIndex = 20
-    var digitHeightState by remember { mutableStateOf(0) }
 
     Layout(
         modifier = Modifier
@@ -161,7 +160,7 @@ private fun AnimatedDigit(
             .graphicsLayer {
                 // Reading animatable.value here runs in the DRAW phase only,
                 // avoiding the per-frame placement pass that was causing the UI freeze.
-                translationY = -animatable.value * digitHeightState
+                translationY = -animatable.value * size.height
             },
         content = {
             for (i in minIndex..maxIndex) {
@@ -173,10 +172,6 @@ private fun AnimatedDigit(
         val placeables = measurables.map { it.measure(constraints) }
         val digitWidth = placeables.firstOrNull()?.width ?: 0
         val digitHeight = placeables.firstOrNull()?.height ?: 0
-        
-        if (digitHeightState != digitHeight) {
-            digitHeightState = digitHeight
-        }
 
         layout(digitWidth, digitHeight) {
             // Static placement — no state reads here. The scrolling effect

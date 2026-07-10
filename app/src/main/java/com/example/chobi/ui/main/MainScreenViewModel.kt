@@ -2,6 +2,7 @@ package com.example.chobi.ui.main
 
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.flow.map
 import androidx.compose.material3.SnackbarResult
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -25,54 +26,25 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 class MainScreenViewModel(private val expenseRepository: ExpenseRepository) : ViewModel() {
-  private val _pendingDeletions = MutableStateFlow<Map<Long, Expense>>(emptyMap())
-  val pendingDeletionsFlow: StateFlow<Map<Long, Expense>> = _pendingDeletions.asStateFlow()
+  private val _activeSnackbars = MutableStateFlow<List<Expense>>(emptyList())
+  val activeSnackbars: StateFlow<List<Expense>> = _activeSnackbars.asStateFlow()
 
   private val _currentSnackbar = MutableStateFlow<Expense?>(null)
   val currentSnackbar: StateFlow<Expense?> = _currentSnackbar.asStateFlow()
 
-  private val snackbarQueue = mutableListOf<Expense>()
-  private var isSnackbarActive = false
-
-  init {
-    viewModelScope.launch {
-      expenseRepository.getAllExpenses().collect { expenses ->
-        val dbIds = expenses.map { it.id }.toSet()
-        _pendingDeletions.update { current ->
-          val keysToRemove = current.keys.filter { it !in dbIds }
-          if (keysToRemove.isNotEmpty()) current - keysToRemove.toSet() else current
-        }
-      }
-    }
-  }
-
-  fun reportSnackbarResult(result: SnackbarResult) {
-    val pending = _currentSnackbar.value ?: return
-    viewModelScope.launch {
-      when (result) {
-        SnackbarResult.ActionPerformed -> undoDeletion(pending.id)
-        SnackbarResult.Dismissed -> confirmDeletion(pending.id)
-      }
-
-      if (snackbarQueue.isNotEmpty()) {
-        _currentSnackbar.value = snackbarQueue.removeAt(0)
-      } else {
-        _currentSnackbar.value = null
-        isSnackbarActive = false
-      }
-    }
-  }
+  private var lastDeletedExpense: Expense? = null
 
   val uiState: StateFlow<MainScreenUiState> =
     combine(
       expenseRepository.getAllExpenses(),
       expenseRepository.getAllCategories(),
       expenseRepository.getAllBudgets(),
-      pendingDeletionsFlow
-    ) { expenses, categories, budgets, pending ->
-      val pendingIds = pending.keys
+      _activeSnackbars
+    ) { expenses, categories, budgets, activeSnackbars ->
+      val activeIds = activeSnackbars.map { it.id }.toSet()
+      val filteredExpenses = expenses.filter { it.id !in activeIds }
       MainScreenUiState.Success(
-        expenses = expenses.filter { it.id !in pendingIds },
+        expenses = filteredExpenses,
         categories = categories,
         budgets = budgets
       ) as MainScreenUiState
@@ -109,27 +81,41 @@ class MainScreenViewModel(private val expenseRepository: ExpenseRepository) : Vi
   }
 
   fun swipeToDelete(expense: Expense) {
-    _pendingDeletions.update { it + (expense.id to expense) }
-    if (isSnackbarActive) {
-      _currentSnackbar.value?.let { current ->
-        snackbarQueue.add(0, current)
+    lastDeletedExpense = expense
+    _activeSnackbars.update { it + expense }
+    _currentSnackbar.value = expense
+  }
+
+  fun reportSnackbarResult(result: SnackbarResult) {
+    val current = _activeSnackbars.value.lastOrNull() ?: return
+    reportSnackbarResult(current, result)
+  }
+
+  fun reportSnackbarResult(expense: Expense, result: SnackbarResult) {
+    _activeSnackbars.update { list -> list.filter { it.id != expense.id } }
+    _currentSnackbar.value = _activeSnackbars.value.lastOrNull()
+    if (result == SnackbarResult.ActionPerformed) {
+      if (lastDeletedExpense?.id == expense.id) {
+        lastDeletedExpense = null
       }
-      _currentSnackbar.value = expense
     } else {
-      isSnackbarActive = true
-      _currentSnackbar.value = expense
+      if (lastDeletedExpense?.id == expense.id) {
+        lastDeletedExpense = null
+      }
+      viewModelScope.launch {
+        expenseRepository.deleteExpense(expense)
+      }
     }
   }
 
-  private fun undoDeletion(expenseId: Long) {
-    _pendingDeletions.update { it - expenseId }
+  fun undoLastDelete() {
+    val current = _activeSnackbars.value.lastOrNull() ?: return
+    reportSnackbarResult(current, SnackbarResult.ActionPerformed)
   }
 
-  private fun confirmDeletion(expenseId: Long) {
-    val expense = _pendingDeletions.value[expenseId] ?: return
-    viewModelScope.launch {
-      expenseRepository.deleteExpense(expense)
-    }
+  fun clearSnackbar() {
+    val current = _activeSnackbars.value.lastOrNull() ?: return
+    reportSnackbarResult(current, SnackbarResult.Dismissed)
   }
 
   fun addCategory(name: String, iconName: String, colorHex: String) {
@@ -302,10 +288,10 @@ class MainScreenViewModel(private val expenseRepository: ExpenseRepository) : Vi
 
   override fun onCleared() {
     super.onCleared()
-    val remaining = _pendingDeletions.value.values.toList()
-    if (remaining.isNotEmpty()) {
+    val pending = _activeSnackbars.value
+    if (pending.isNotEmpty()) {
       kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).launch {
-        remaining.forEach { expense ->
+        pending.forEach { expense ->
           expenseRepository.deleteExpense(expense)
         }
       }

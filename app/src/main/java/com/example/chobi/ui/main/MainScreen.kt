@@ -13,6 +13,7 @@ import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import com.example.chobi.ui.components.SwipeableSnackbar
+import com.example.chobi.ui.components.StackedSnackbarHost
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -63,7 +64,6 @@ fun MainScreen(
 ) {
   val context = LocalContext.current
   val coroutineScope = rememberCoroutineScope()
-  val snackbarHostState = remember { SnackbarHostState() }
   
   val currencyFlow = remember(context) {
     context.dataStore.data.map { preferences ->
@@ -88,18 +88,8 @@ fun MainScreen(
     MainScreenViewModel(app.expenseRepository)
   }
   val state by viewModel.uiState.collectAsStateWithLifecycle()
-  val currentSnackbar by viewModel.currentSnackbar.collectAsStateWithLifecycle()
+  val activeSnackbars by viewModel.activeSnackbars.collectAsStateWithLifecycle()
 
-  LaunchedEffect(currentSnackbar) {
-    val pending = currentSnackbar ?: return@LaunchedEffect
-
-    val result = snackbarHostState.showSnackbar(
-      message = "Deleted \"${pending.title}\"",
-      actionLabel = "Undo",
-      duration = SnackbarDuration.Indefinite
-    )
-    viewModel.reportSnackbarResult(result)
-  }
   var showBottomSheet by remember { mutableStateOf(false) }
   var showSettingsDialog by remember { mutableStateOf(false) }
   var expenseToEdit by remember { mutableStateOf<Expense?>(null) }
@@ -179,15 +169,13 @@ fun MainScreen(
 
   Scaffold(
     snackbarHost = {
-      SnackbarHost(snackbarHostState) { data ->
-        Box(
-          modifier = Modifier
-            .padding(16.dp)
-            .navigationBarsPadding()
-        ) {
-          SwipeableSnackbar(data = data)
-        }
-      }
+      StackedSnackbarHost(
+        activeSnackbars = activeSnackbars,
+        onSnackbarResult = { expense, result ->
+          viewModel.reportSnackbarResult(expense, result)
+        },
+        modifier = Modifier.navigationBarsPadding()
+      )
     },
     topBar = {
       TopAppBar(
@@ -259,24 +247,31 @@ fun MainScreen(
         )
 
         if (showBottomSheet) {
+          val sheetState = rememberBottomSheetState(initialValue = SheetValue.Hidden, enabledValues = setOf(SheetValue.Hidden, SheetValue.Expanded))
           ModalBottomSheet(
             onDismissRequest = {
               expenseToEdit = null
               showBottomSheet = false
             },
-            sheetState = rememberBottomSheetState(initialValue = SheetValue.Hidden, enabledValues = setOf(SheetValue.Hidden, SheetValue.Expanded))
+            sheetState = sheetState
           ) {
             AddExpenseSheet(
               categories = success.categories,
               expenseToEdit = expenseToEdit,
               onAddExpense = { title, amount, categoryName, timestamp ->
                 viewModel.addExpense(title, amount, categoryName, timestamp, selectedBudget?.id)
-                showBottomSheet = false
+                coroutineScope.launch {
+                  sheetState.hide()
+                  showBottomSheet = false
+                }
               },
               onUpdateExpense = { updatedExpense ->
                 viewModel.updateExpense(updatedExpense)
                 expenseToEdit = null
-                showBottomSheet = false
+                coroutineScope.launch {
+                  sheetState.hide()
+                  showBottomSheet = false
+                }
               },
               onAddCategory = { name, iconName, colorHex ->
                 viewModel.addCategory(name, iconName, colorHex)
@@ -288,8 +283,11 @@ fun MainScreen(
                 viewModel.deleteCategory(category)
               },
               onDismiss = {
-                expenseToEdit = null
-                showBottomSheet = false
+                coroutineScope.launch {
+                  sheetState.hide()
+                  expenseToEdit = null
+                  showBottomSheet = false
+                }
               },
               currencyCode = selectedCurrencyCode
             )

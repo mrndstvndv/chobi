@@ -1,9 +1,6 @@
 package com.example.chobi.ui.components
 
-import androidx.compose.animation.core.Animatable
-import androidx.compose.animation.core.LinearEasing
-import androidx.compose.animation.core.tween
-import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -13,57 +10,51 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.delay
 
 @OptIn(ExperimentalMaterial3Api::class)
-@Suppress("DEPRECATION")
 @Composable
 fun SwipeableSnackbar(
-  data: SnackbarData,
-  modifier: Modifier = Modifier
+  message: String,
+  icon: ImageVector,
+  actionLabel: String?,
+  onAction: (() -> Unit)?,
+  onDismiss: () -> Unit,
+  modifier: Modifier = Modifier,
+  darkOverlayAlpha: Float = 0f
 ) {
-  key(data) {
-    val progress = remember { Animatable(1f) }
 
-    LaunchedEffect(data) {
-      progress.animateTo(
-        targetValue = 0f,
-        animationSpec = tween(durationMillis = 4000, easing = LinearEasing)
-      )
-      data.dismiss()
-    }
-
-    val dismissState = rememberSwipeToDismissBoxState(
-      confirmValueChange = { value ->
-        if (value != SwipeToDismissBoxValue.Settled) {
-          data.dismiss()
-        }
-        true
+  val dismissState = rememberSwipeToDismissBoxState(
+    confirmValueChange = { value ->
+      if (value != SwipeToDismissBoxValue.Settled) {
+        onDismiss()
       }
-    )
+      true
+    }
+  )
 
-    SwipeToDismissBox(
-      state = dismissState,
-      backgroundContent = {},
-      content = {
-        Card(
-          shape = RoundedCornerShape(20.dp),
-          colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant,
-            contentColor = MaterialTheme.colorScheme.onSurfaceVariant
-          ),
-          elevation = CardDefaults.cardElevation(defaultElevation = 8.dp),
-          border = BorderStroke(
-            width = 1.dp,
-            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.2f)
-          ),
-          modifier = modifier.fillMaxWidth()
-        ) {
+  SwipeToDismissBox(
+    state = dismissState,
+    backgroundContent = {},
+    modifier = modifier,
+    content = {
+      Card(
+        shape = RoundedCornerShape(28.dp),
+        colors = CardDefaults.cardColors(
+          containerColor = Color(0xFF2A2D23),
+          contentColor = Color(0xFFE2E3D8)
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 6.dp),
+        modifier = Modifier.fillMaxWidth()
+      ) {
+        Box(modifier = Modifier.fillMaxWidth()) {
           Row(
             modifier = Modifier
-              .padding(horizontal = 16.dp, vertical = 8.dp)
+              .padding(horizontal = 8.dp, vertical = 8.dp)
               .fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween
@@ -73,37 +64,32 @@ fun SwipeableSnackbar(
               modifier = Modifier.weight(1f)
             ) {
               Box(
-                modifier = Modifier.size(36.dp),
+                modifier = Modifier
+                  .size(36.dp)
+                  .background(Color(0xFFC5C995), RoundedCornerShape(12.dp)),
                 contentAlignment = Alignment.Center
               ) {
-                CircularProgressIndicator(
-                  progress = { progress.value },
-                  modifier = Modifier.fillMaxSize(),
-                  color = MaterialTheme.colorScheme.primary,
-                  trackColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f),
-                  strokeWidth = 3.dp
-                )
                 Icon(
-                  imageVector = Icons.Default.Delete,
+                  imageVector = icon,
                   contentDescription = null,
-                  tint = MaterialTheme.colorScheme.error,
-                  modifier = Modifier.size(16.dp)
+                  tint = Color(0xFF2A2D23),
+                  modifier = Modifier.size(18.dp)
                 )
               }
               Spacer(modifier = Modifier.width(12.dp))
               Text(
-                text = data.visuals.message,
+                text = message,
                 style = MaterialTheme.typography.bodyMedium,
                 fontWeight = FontWeight.Medium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                color = Color(0xFFE2E3D8)
               )
             }
 
-            data.visuals.actionLabel?.let { actionLabel ->
+            if (actionLabel != null && onAction != null) {
               TextButton(
-                onClick = { data.performAction() },
+                onClick = onAction,
                 colors = ButtonDefaults.textButtonColors(
-                  contentColor = MaterialTheme.colorScheme.primary
+                  contentColor = Color(0xFFFFB86D)
                 ),
                 contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
               ) {
@@ -121,8 +107,36 @@ fun SwipeableSnackbar(
               }
             }
           }
+
+          if (darkOverlayAlpha > 0f) {
+            Box(
+              modifier = Modifier
+                .matchParentSize()
+                .background(Color.Black.copy(alpha = darkOverlayAlpha))
+            )
+          }
         }
       }
-    )
+    }
+  )
+}
+
+@Composable
+fun SwipeableSnackbar(
+  data: SnackbarData,
+  modifier: Modifier = Modifier
+) {
+  LaunchedEffect(data) {
+    delay(4000)
+    data.dismiss()
   }
+
+  SwipeableSnackbar(
+    message = data.visuals.message,
+    icon = Icons.Default.Delete,
+    actionLabel = data.visuals.actionLabel,
+    onAction = { data.performAction() },
+    onDismiss = { data.dismiss() },
+    modifier = modifier
+  )
 }

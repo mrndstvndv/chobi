@@ -28,18 +28,14 @@ fun SwipeableSnackbar(
   darkOverlayAlpha: Float = 0f
 ) {
 
-  val dismissState = rememberSwipeToDismissBoxState(
-    confirmValueChange = { value ->
-      if (value != SwipeToDismissBoxValue.Settled) {
-        onDismiss()
-      }
-      true
-    }
-  )
+  val dismissState = rememberSwipeToDismissBoxState()
 
   SwipeToDismissBox(
     state = dismissState,
     backgroundContent = {},
+    onDismiss = {
+      onDismiss()
+    },
     modifier = modifier,
     content = {
       Card(

@@ -76,12 +76,11 @@ fun MainContent(
     )
   }
 
-  LazyColumn(
-    modifier = modifier,
-    verticalArrangement = Arrangement.spacedBy(ListItemDefaults.SegmentedGap)
-  ) {
-    // Summary/Wallet Card
-    item {
+  if (filteredExpenses.isEmpty()) {
+    Column(
+      modifier = modifier,
+      verticalArrangement = Arrangement.Top
+    ) {
       SummaryCard(
         expenses = filteredExpenses,
         totalAmount = totalAmount,
@@ -96,24 +95,49 @@ fun MainContent(
           .fillMaxWidth()
           .padding(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 8.dp)
       )
+      Column(
+        modifier = Modifier
+          .fillMaxWidth()
+          .weight(1f),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+      ) {
+        Text(
+          text = "¯\\_(ツ)_/¯",
+          style = MaterialTheme.typography.headlineMedium,
+          color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+          modifier = Modifier.padding(bottom = 12.dp)
+        )
+        Text(
+          text = if (selectedBudget != null) "No expenses in this budget" else "No expenses added yet",
+          style = MaterialTheme.typography.titleMedium,
+          color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+      }
     }
-
-    if (filteredExpenses.isEmpty()) {
+  } else {
+    LazyColumn(
+      modifier = modifier,
+      verticalArrangement = Arrangement.spacedBy(ListItemDefaults.SegmentedGap)
+    ) {
+      // Summary/Wallet Card
       item {
-        Box(
+        SummaryCard(
+          expenses = filteredExpenses,
+          totalAmount = totalAmount,
+          budgets = budgets,
+          selectedBudget = selectedBudget,
+          onSelectBudget = onSelectBudget,
+          onNewBudgetClick = { showBudgetDialog = true },
+          onDeleteBudget = onDeleteBudget,
+          currencyCode = currencyCode,
+          currencyFormatter = currencyFormatter,
           modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 48.dp),
-          contentAlignment = Alignment.Center
-        ) {
-          Text(
-            text = if (selectedBudget != null) "No expenses in this budget period." else "No expenses added yet.",
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-          )
-        }
+            .padding(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 8.dp)
+        )
       }
-    } else {
+
       groupedExpenses.forEach { (header, pair) ->
         val (itemsForHeader, dayTotal) = pair
         item(key = "header_$header") {

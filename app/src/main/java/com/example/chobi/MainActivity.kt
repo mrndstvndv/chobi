@@ -1,5 +1,6 @@
 package com.example.chobi
 
+import android.graphics.drawable.ColorDrawable
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -46,6 +47,7 @@ class MainActivity : ComponentActivity() {
     }
 
     enableEdgeToEdge()
+    window.setBackgroundDrawable(ColorDrawable(android.graphics.Color.TRANSPARENT))
     setContent {
       if (isReady) {
         val darkTheme = when (themeModeState) {

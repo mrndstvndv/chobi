@@ -4,6 +4,7 @@ import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.flow.map
 import androidx.compose.material3.SnackbarResult
+import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.chobi.data.AppDatabase
@@ -23,30 +24,49 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 
-class MainScreenViewModel(private val expenseRepository: ExpenseRepository) : ViewModel() {
+class MainScreenViewModel(
+  private val expenseRepository: ExpenseRepository,
+  private val savedStateHandle: SavedStateHandle
+) : ViewModel() {
   private val _activeSnackbars = MutableStateFlow<List<Expense>>(emptyList())
   val activeSnackbars: StateFlow<List<Expense>> = _activeSnackbars.asStateFlow()
 
   private val _currentSnackbar = MutableStateFlow<Expense?>(null)
   val currentSnackbar: StateFlow<Expense?> = _currentSnackbar.asStateFlow()
+  private val deletionMutex = Mutex()
 
-  private var lastDeletedExpense: Expense? = null
+  val selectedBudgetId: StateFlow<Long?> = savedStateHandle.getStateFlow("selected_budget_id", -1L)
 
   val uiState: StateFlow<MainScreenUiState> =
     combine(
       expenseRepository.getAllExpenses(),
       expenseRepository.getAllCategories(),
       expenseRepository.getAllBudgets(),
+      selectedBudgetId,
       _activeSnackbars
-    ) { expenses, categories, budgets, activeSnackbars ->
+    ) { expenses, categories, budgets, selectedId, activeSnackbars ->
       val activeIds = activeSnackbars.map { it.id }.toSet()
       val filteredExpenses = expenses.filter { it.id !in activeIds }
+
+      val resolvedBudget = if (selectedId == -1L) {
+        budgets.firstOrNull { it.endTimestamp == null } ?: budgets.firstOrNull()
+      } else if (selectedId == null) {
+        null
+      } else {
+        budgets.firstOrNull { it.id == selectedId }
+          ?: budgets.firstOrNull { it.endTimestamp == null }
+          ?: budgets.firstOrNull()
+      }
+
       MainScreenUiState.Success(
         expenses = filteredExpenses,
         categories = categories,
-        budgets = budgets
+        budgets = budgets,
+        selectedBudget = resolvedBudget
       ) as MainScreenUiState
     }
       .flowOn(Dispatchers.Default)
@@ -81,9 +101,13 @@ class MainScreenViewModel(private val expenseRepository: ExpenseRepository) : Vi
   }
 
   fun swipeToDelete(expense: Expense) {
-    lastDeletedExpense = expense
     _activeSnackbars.update { it + expense }
     _currentSnackbar.value = expense
+    viewModelScope.launch {
+      deletionMutex.withLock {
+        expenseRepository.deleteExpense(expense)
+      }
+    }
   }
 
   fun reportSnackbarResult(result: SnackbarResult) {
@@ -95,15 +119,10 @@ class MainScreenViewModel(private val expenseRepository: ExpenseRepository) : Vi
     _activeSnackbars.update { list -> list.filter { it.id != expense.id } }
     _currentSnackbar.value = _activeSnackbars.value.lastOrNull()
     if (result == SnackbarResult.ActionPerformed) {
-      if (lastDeletedExpense?.id == expense.id) {
-        lastDeletedExpense = null
-      }
-    } else {
-      if (lastDeletedExpense?.id == expense.id) {
-        lastDeletedExpense = null
-      }
       viewModelScope.launch {
-        expenseRepository.deleteExpense(expense)
+        deletionMutex.withLock {
+          expenseRepository.insertExpense(expense)
+        }
       }
     }
   }
@@ -144,19 +163,7 @@ class MainScreenViewModel(private val expenseRepository: ExpenseRepository) : Vi
 
   fun createNewBudget(title: String, limitAmount: Double) {
     viewModelScope.launch {
-      val budgets = expenseRepository.getAllBudgets().first()
-      val activeBudgets = budgets.filter { it.endTimestamp == null }
-      for (budget in activeBudgets) {
-        expenseRepository.updateBudget(budget.copy(endTimestamp = System.currentTimeMillis()))
-      }
-      expenseRepository.insertBudget(
-        Budget(
-          title = title,
-          limitAmount = limitAmount,
-          startTimestamp = System.currentTimeMillis(),
-          endTimestamp = null
-        )
-      )
+      expenseRepository.createBudget(title, limitAmount, System.currentTimeMillis())
     }
   }
 
@@ -164,6 +171,10 @@ class MainScreenViewModel(private val expenseRepository: ExpenseRepository) : Vi
     viewModelScope.launch {
       expenseRepository.deleteBudget(budget)
     }
+  }
+
+  fun selectBudget(budget: Budget?) {
+    savedStateHandle["selected_budget_id"] = budget?.id
   }
 
   fun exportDataToJson(
@@ -275,6 +286,7 @@ class MainScreenViewModel(private val expenseRepository: ExpenseRepository) : Vi
             inStream.copyTo(outStream)
           }
         } ?: throw Exception("Failed to open input stream")
+        (context.applicationContext as? com.example.chobi.ChobiApplication)?.reloadDatabase()
         withContext(Dispatchers.Main) {
           onSuccess()
         }
@@ -286,21 +298,15 @@ class MainScreenViewModel(private val expenseRepository: ExpenseRepository) : Vi
     }
   }
 
-  override fun onCleared() {
-    super.onCleared()
-    val pending = _activeSnackbars.value
-    if (pending.isNotEmpty()) {
-      kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).launch {
-        pending.forEach { expense ->
-          expenseRepository.deleteExpense(expense)
-        }
-      }
-    }
-  }
 }
 
 sealed interface MainScreenUiState {
   data object Loading : MainScreenUiState
   data class Error(val throwable: Throwable) : MainScreenUiState
-  data class Success(val expenses: List<Expense>, val categories: List<Category>, val budgets: List<Budget>) : MainScreenUiState
+  data class Success(
+    val expenses: List<Expense>,
+    val categories: List<Category>,
+    val budgets: List<Budget>,
+    val selectedBudget: Budget?
+  ) : MainScreenUiState
 }

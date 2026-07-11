@@ -37,7 +37,7 @@ fun SummaryCard(
   selectedBudget: Budget?,
   onSelectBudget: (Budget?) -> Unit,
   onNewBudgetClick: () -> Unit,
-  onDeleteBudget: (Budget) -> Unit,
+  onClick: () -> Unit,
   currencyCode: String,
   currencyFormatter: NumberFormat,
   modifier: Modifier = Modifier
@@ -60,6 +60,7 @@ fun SummaryCard(
             )
           )
         )
+        .clickable { onClick() }
         .padding(24.dp)
     ) {
       Column(modifier = Modifier.fillMaxWidth()) {
@@ -167,20 +168,7 @@ fun SummaryCard(
             }
           }
 
-          // Delete budget button if a budget is selected
-          if (selectedBudget != null) {
-            IconButton(
-              onClick = { onDeleteBudget(selectedBudget) },
-              modifier = Modifier.size(24.dp)
-            ) {
-              Icon(
-                imageVector = Icons.Default.Delete,
-                contentDescription = "Delete Budget",
-                tint = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f),
-                modifier = Modifier.size(18.dp)
-              )
-            }
-          }
+
         }
 
         Spacer(modifier = Modifier.height(12.dp))

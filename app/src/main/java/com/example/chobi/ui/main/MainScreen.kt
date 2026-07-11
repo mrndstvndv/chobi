@@ -21,8 +21,10 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.lifecycle.createSavedStateHandle
 import androidx.navigation3.runtime.NavKey
 import com.example.chobi.ChobiApplication
+import com.example.chobi.Dashboard
 import com.example.chobi.data.Expense
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -85,7 +87,8 @@ fun MainScreen(
 
   val app = context.applicationContext as ChobiApplication
   val viewModel: MainScreenViewModel = viewModel {
-    MainScreenViewModel(app.expenseRepository)
+    val savedStateHandle = createSavedStateHandle()
+    MainScreenViewModel(app.expenseRepository, savedStateHandle)
   }
   val state by viewModel.uiState.collectAsStateWithLifecycle()
   val activeSnackbars by viewModel.activeSnackbars.collectAsStateWithLifecycle()
@@ -104,10 +107,7 @@ fun MainScreen(
   val currentCategories = successState?.categories ?: emptyList()
   val currentExpenses = successState?.expenses ?: emptyList()
   val currentBudgets = successState?.budgets ?: emptyList()
-
-  var selectedBudget by remember(currentBudgets) {
-    mutableStateOf(currentBudgets.firstOrNull { it.endTimestamp == null } ?: currentBudgets.firstOrNull())
-  }
+  val selectedBudget = successState?.selectedBudget
 
   val exportJsonLauncher = rememberLauncherForActivityResult(
     contract = ActivityResultContracts.CreateDocument("application/json")
@@ -225,15 +225,15 @@ fun MainScreen(
           categories = success.categories,
           budgets = success.budgets,
           selectedBudget = selectedBudget,
-          onSelectBudget = { selectedBudget = it },
+          onSelectBudget = { viewModel.selectBudget(it) },
           onDeleteExpense = { expense ->
             viewModel.swipeToDelete(expense)
           },
           onCreateBudget = { title, limit ->
             viewModel.createNewBudget(title, limit)
           },
-          onDeleteBudget = { budget ->
-            viewModel.deleteBudget(budget)
+          onSummaryCardClick = { budget ->
+            onItemClick(Dashboard(budgetId = budget?.id))
           },
           onExpenseClick = { expense ->
             expenseToEdit = expense
@@ -832,10 +832,8 @@ fun MainScreen(
                 context = context,
                 uri = uri,
                 onSuccess = {
-                  Toast.makeText(context, "Database restored. Restarting...", Toast.LENGTH_SHORT).show()
-                  android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
-                    android.os.Process.killProcess(android.os.Process.myPid())
-                  }, 1500)
+                  Toast.makeText(context, "Database restored. Reloading...", Toast.LENGTH_SHORT).show()
+                  (context as? android.app.Activity)?.recreate()
                 },
                 onError = { error ->
                   Toast.makeText(context, "Database restore failed: ${error.message}", Toast.LENGTH_LONG).show()

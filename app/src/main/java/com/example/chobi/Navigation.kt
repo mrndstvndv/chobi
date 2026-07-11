@@ -9,6 +9,7 @@ import androidx.navigation3.runtime.entryProvider
 import androidx.navigation3.runtime.rememberNavBackStack
 import androidx.navigation3.ui.NavDisplay
 import com.example.chobi.ui.main.MainScreen
+import com.example.chobi.ui.dashboard.DashboardScreen
 
 @Composable
 fun MainNavigation() {
@@ -21,6 +22,12 @@ fun MainNavigation() {
       entryProvider {
         entry<Main> {
           MainScreen(onItemClick = { navKey -> backStack.add(navKey) })
+        }
+        entry<Dashboard> { key ->
+          DashboardScreen(
+            budgetId = key.budgetId,
+            onBack = { backStack.removeLastOrNull() }
+          )
         }
       },
   )

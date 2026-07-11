@@ -34,10 +34,12 @@ class MainActivity : ComponentActivity() {
 
     // Retrieve settings asynchronously before showing the main UI
     lifecycleScope.launch {
-      dataStore.data.collect { preferences ->
-        dynamicColorState = preferences[DYNAMIC_COLOR_KEY] ?: false
-        themeModeState = preferences[THEME_MODE_KEY] ?: "system"
-        isReady = true
+      repeatOnLifecycle(Lifecycle.State.STARTED) {
+        dataStore.data.collect { preferences ->
+          dynamicColorState = preferences[DYNAMIC_COLOR_KEY] ?: false
+          themeModeState = preferences[THEME_MODE_KEY] ?: "system"
+          isReady = true
+        }
       }
     }
 

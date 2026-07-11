@@ -14,10 +14,16 @@ interface ExpenseRepository {
     suspend fun deleteCategory(category: Category)
     suspend fun prepopulateDefaultCategories()
     suspend fun clearAllData()
-    suspend fun importData(categories: List<Category>, expenses: List<Pair<Expense, Long?>>, budgets: List<Budget>, overwrite: Boolean)
+    suspend fun importData(
+        categories: List<Category>,
+        expenses: List<BackupHelper.BackupExpense>,
+        budgets: List<Budget>,
+        overwrite: Boolean
+    )
 
     fun getAllBudgets(): Flow<List<Budget>>
     fun getActiveBudget(): Flow<Budget?>
+    suspend fun createBudget(title: String, limitAmount: Double, startTimestamp: Long): Long
     suspend fun insertBudget(budget: Budget): Long
     suspend fun updateBudget(budget: Budget)
     suspend fun deleteBudget(budget: Budget)
@@ -26,7 +32,8 @@ interface ExpenseRepository {
 class DefaultExpenseRepository(
     private val expenseDao: ExpenseDao,
     private val categoryDao: CategoryDao,
-    private val budgetDao: BudgetDao
+    private val budgetDao: BudgetDao,
+    private val database: AppDatabase
 ) : ExpenseRepository {
     override fun getAllExpenses(): Flow<List<Expense>> = expenseDao.getAllExpenses()
 
@@ -45,9 +52,13 @@ class DefaultExpenseRepository(
     }
 
     override suspend fun updateCategory(category: Category, oldName: String) {
-        if (category.name != oldName) {
-            expenseDao.updateExpenseCategory(oldName, category.name)
+        database.runInTransaction {
+            updateCategoryInternal(category, oldName)
         }
+    }
+
+    private suspend fun updateCategoryInternal(category: Category, oldName: String) {
+        if (category.name != oldName) expenseDao.updateExpenseCategory(oldName, category.name)
         categoryDao.insertCategory(category)
     }
 
@@ -74,38 +85,56 @@ class DefaultExpenseRepository(
         budgetDao.deleteAllBudgets()
     }
 
-    override suspend fun importData(categories: List<Category>, expenses: List<Pair<Expense, Long?>>, budgets: List<Budget>, overwrite: Boolean) {
+    override suspend fun importData(
+        categories: List<Category>,
+        expenses: List<BackupHelper.BackupExpense>,
+        budgets: List<Budget>,
+        overwrite: Boolean
+    ) {
+        database.runInTransaction {
+            importDataInternal(categories, expenses, budgets, overwrite)
+        }
+    }
+
+    private suspend fun importDataInternal(
+        categories: List<Category>,
+        expenses: List<BackupHelper.BackupExpense>,
+        budgets: List<Budget>,
+        overwrite: Boolean
+    ) {
         if (overwrite) {
             clearAllData()
             for (cat in categories) {
                 categoryDao.insertCategory(cat.copy(id = 0))
             }
-            val newBudgetIdsByStart = mutableMapOf<Long, Long>()
-            for (bud in budgets) {
+            val newBudgetIdsByKey = mutableMapOf<String, Long>()
+            budgets.forEachIndexed { index, bud ->
                 val newId = budgetDao.insertBudget(bud.copy(id = 0))
-                newBudgetIdsByStart[bud.startTimestamp] = newId
+                newBudgetIdsByKey[budgetKey(index, bud)] = newId
+                newBudgetIdsByKey["legacy-start:${bud.startTimestamp}"] = newId
             }
-            for (pair in expenses) {
-                val exp = pair.first
-                val budgetStart = pair.second
-                val mappedBudgetId = budgetStart?.let { newBudgetIdsByStart[it] }
-                expenseDao.insertExpense(exp.copy(id = 0, budgetId = mappedBudgetId))
+            for (backupExpense in expenses) {
+                val mappedBudgetId = backupExpense.budgetKey?.let {
+                    newBudgetIdsByKey[it] ?: error("Backup references an unknown budget")
+                }
+                expenseDao.insertExpense(backupExpense.expense.copy(id = 0, budgetId = mappedBudgetId))
             }
         } else {
             // Merge mode
             val existingCats = categoryDao.getAllCategories().first()
-            val existingNames = existingCats.map { it.name.lowercase() }.toSet()
+            val existingNames = existingCats.mapTo(mutableSetOf()) { it.name.trim().lowercase() }
             for (cat in categories) {
-                if (cat.name.lowercase() !in existingNames) {
+                if (cat.name.trim().lowercase() !in existingNames) {
                     categoryDao.insertCategory(cat.copy(id = 0))
+                    existingNames += cat.name.trim().lowercase()
                 }
             }
 
             val existingBudgets = budgetDao.getAllBudgets().first()
-            val newBudgetIdsByStart = mutableMapOf<Long, Long>()
-            for (bud in budgets) {
+            val newBudgetIdsByKey = mutableMapOf<String, Long>()
+            budgets.forEachIndexed { index, bud ->
                 val existing = existingBudgets.firstOrNull {
-                    it.title.lowercase() == bud.title.lowercase() &&
+                    it.title.trim().lowercase() == bud.title.trim().lowercase() &&
                     it.limitAmount == bud.limitAmount &&
                     it.startTimestamp == bud.startTimestamp
                 }
@@ -114,21 +143,19 @@ class DefaultExpenseRepository(
                 } else {
                     budgetDao.insertBudget(bud.copy(id = 0))
                 }
-                newBudgetIdsByStart[bud.startTimestamp] = newId
+                newBudgetIdsByKey[budgetKey(index, bud)] = newId
+                newBudgetIdsByKey["legacy-start:${bud.startTimestamp}"] = newId
             }
 
             val existingExpenses = expenseDao.getAllExpenses().first()
-            for (pair in expenses) {
-                val exp = pair.first
-                val budgetStart = pair.second
-                val isDuplicate = existingExpenses.any {
-                    it.title.lowercase() == exp.title.lowercase() &&
-                    it.amount == exp.amount &&
-                    it.category.lowercase() == exp.category.lowercase() &&
-                    it.timestamp == exp.timestamp
+            val importedExpenseKeys = existingExpenses
+                .mapTo(mutableSetOf(), ::expenseKey)
+            for (backupExpense in expenses) {
+                val exp = backupExpense.expense
+                val mappedBudgetId = backupExpense.budgetKey?.let {
+                    newBudgetIdsByKey[it] ?: error("Backup references an unknown budget")
                 }
-                if (!isDuplicate) {
-                    val mappedBudgetId = budgetStart?.let { newBudgetIdsByStart[it] }
+                if (importedExpenseKeys.add(expenseKey(exp))) {
                     expenseDao.insertExpense(exp.copy(id = 0, budgetId = mappedBudgetId))
                 }
             }
@@ -139,9 +166,31 @@ class DefaultExpenseRepository(
 
     override fun getActiveBudget(): Flow<Budget?> = budgetDao.getActiveBudget()
 
+    override suspend fun createBudget(title: String, limitAmount: Double, startTimestamp: Long): Long {
+        val operation: suspend () -> Long = {
+            budgetDao.getAllBudgets().first()
+                .filter { it.endTimestamp == null }
+                .forEach { budgetDao.updateBudget(it.copy(endTimestamp = startTimestamp)) }
+            budgetDao.insertBudget(
+                Budget(
+                    title = title,
+                    limitAmount = limitAmount,
+                    startTimestamp = startTimestamp
+                )
+            )
+        }
+        return database.runInTransaction { operation() }
+    }
+
     override suspend fun insertBudget(budget: Budget): Long = budgetDao.insertBudget(budget)
 
     override suspend fun updateBudget(budget: Budget) = budgetDao.updateBudget(budget)
 
     override suspend fun deleteBudget(budget: Budget) = budgetDao.deleteBudget(budget)
+
+    private fun budgetKey(index: Int, budget: Budget): String =
+        "$index:${budget.title.trim().lowercase()}:${budget.startTimestamp}:${budget.limitAmount}"
+
+    private fun expenseKey(expense: Expense): String =
+        "${expense.title.trim().lowercase()}|${expense.amount}|${expense.category.trim().lowercase()}|${expense.timestamp}"
 }

@@ -9,8 +9,34 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
 class ChobiApplication : Application() {
-    val database by lazy { AppDatabase.getDatabase(this) }
-    val expenseRepository by lazy { DefaultExpenseRepository(database.expenseDao(), database.categoryDao(), database.budgetDao()) }
+    @Volatile
+    private var databaseInstance: AppDatabase? = null
+
+    @Volatile
+    private var repositoryInstance: DefaultExpenseRepository? = null
+
+    val database: AppDatabase
+        get() = synchronized(this) {
+            databaseInstance ?: AppDatabase.getDatabase(this).also { databaseInstance = it }
+        }
+
+    val expenseRepository: DefaultExpenseRepository
+        get() = synchronized(this) {
+            repositoryInstance ?: DefaultExpenseRepository(
+                database.expenseDao(),
+                database.categoryDao(),
+                database.budgetDao(),
+                database
+            ).also { repositoryInstance = it }
+        }
+
+    fun reloadDatabase() {
+        synchronized(this) {
+            databaseInstance?.close()
+            databaseInstance = null
+            repositoryInstance = null
+        }
+    }
 
     override fun onCreate() {
         super.onCreate()

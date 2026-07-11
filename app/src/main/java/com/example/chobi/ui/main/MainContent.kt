@@ -31,7 +31,7 @@ fun MainContent(
   onSelectBudget: (Budget?) -> Unit,
   onDeleteExpense: (Expense) -> Unit,
   onCreateBudget: (title: String, limitAmount: Double) -> Unit,
-  onDeleteBudget: (Budget) -> Unit,
+  onSummaryCardClick: (Budget?) -> Unit,
   currencyCode: String = "USD",
   timeFormatPreference: String = "auto",
   modifier: Modifier = Modifier,
@@ -88,7 +88,7 @@ fun MainContent(
         selectedBudget = selectedBudget,
         onSelectBudget = onSelectBudget,
         onNewBudgetClick = { showBudgetDialog = true },
-        onDeleteBudget = onDeleteBudget,
+        onClick = { onSummaryCardClick(selectedBudget) },
         currencyCode = currencyCode,
         currencyFormatter = currencyFormatter,
         modifier = Modifier
@@ -129,7 +129,7 @@ fun MainContent(
           selectedBudget = selectedBudget,
           onSelectBudget = onSelectBudget,
           onNewBudgetClick = { showBudgetDialog = true },
-          onDeleteBudget = onDeleteBudget,
+          onClick = { onSummaryCardClick(selectedBudget) },
           currencyCode = currencyCode,
           currencyFormatter = currencyFormatter,
           modifier = Modifier
@@ -205,7 +205,7 @@ fun MainScreenPreview() {
       onSelectBudget = {},
       onDeleteExpense = {},
       onCreateBudget = { _, _ -> },
-      onDeleteBudget = {}
+      onSummaryCardClick = {}
     )
   }
 }

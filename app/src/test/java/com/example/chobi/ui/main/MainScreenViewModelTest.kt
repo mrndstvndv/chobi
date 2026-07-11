@@ -1,10 +1,12 @@
 package com.example.chobi.ui.main
 
 import com.example.chobi.data.Budget
+import com.example.chobi.data.BackupHelper
 import com.example.chobi.data.Category
 import com.example.chobi.data.Expense
 import com.example.chobi.data.ExpenseRepository
 import androidx.compose.material3.SnackbarResult
+import androidx.lifecycle.SavedStateHandle
 import junit.framework.TestCase.assertEquals
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -18,14 +20,14 @@ import org.junit.Test
 class MainScreenViewModelTest {
   @Test
   fun uiState_initiallyLoading() = runTest {
-    val viewModel = MainScreenViewModel(FakeExpenseRepository())
+    val viewModel = MainScreenViewModel(FakeExpenseRepository(), SavedStateHandle())
     assertEquals(MainScreenUiState.Loading, viewModel.uiState.value)
   }
 
   @Test
   fun uiState_onItemSaved_isDisplayed() = runTest {
     val repository = FakeExpenseRepository()
-    val viewModel = MainScreenViewModel(repository)
+    val viewModel = MainScreenViewModel(repository, SavedStateHandle())
     
     // Start collecting to activate stateIn sharing
     val collectJob = launch { viewModel.uiState.collect {} }
@@ -44,7 +46,7 @@ class MainScreenViewModelTest {
   @Test
   fun uiState_onItemSavedWithCustomTimestamp_isDisplayed() = runTest {
     val repository = FakeExpenseRepository()
-    val viewModel = MainScreenViewModel(repository)
+    val viewModel = MainScreenViewModel(repository, SavedStateHandle())
     
     val collectJob = launch { viewModel.uiState.collect {} }
     
@@ -64,7 +66,7 @@ class MainScreenViewModelTest {
   @Test
   fun uiState_onItemSavedWithSpecificBudgetId_isAssociatedWithBudget() = runTest {
     val repository = FakeExpenseRepository()
-    val viewModel = MainScreenViewModel(repository)
+    val viewModel = MainScreenViewModel(repository, SavedStateHandle())
     
     val collectJob = launch { viewModel.uiState.collect {} }
     
@@ -82,7 +84,7 @@ class MainScreenViewModelTest {
   @Test
   fun snackbarQueue_processesSequentiallyWithoutDelay() = runTest {
     val repository = FakeExpenseRepository()
-    val viewModel = MainScreenViewModel(repository)
+    val viewModel = MainScreenViewModel(repository, SavedStateHandle())
 
     val expense1 = Expense(id = 1L, title = "Lunch", amount = 15.50, category = "Food", timestamp = 0L)
     val expense2 = Expense(id = 2L, title = "Coffee", amount = 4.50, category = "Food", timestamp = 0L)
@@ -109,9 +111,9 @@ class MainScreenViewModelTest {
   }
 
   @Test
-  fun onCleared_deletesPendingDeletionsFromRepository() = runTest {
+  fun swipeToDelete_commitsDeletionImmediately() = runTest {
     val repository = FakeExpenseRepository()
-    val viewModel = MainScreenViewModel(repository)
+    val viewModel = MainScreenViewModel(repository, SavedStateHandle())
 
     val expense = Expense(id = 1L, title = "Lunch", amount = 15.50, category = "Food", timestamp = 0L)
     repository.insertExpense(expense)
@@ -119,18 +121,54 @@ class MainScreenViewModelTest {
     // Verify it is in DB initially
     assertEquals(1, repository.getAllExpenses().first().size)
 
-    // Swipe to delete (adds to pending deletions)
+    // Swipe to delete commits the deletion immediately; the snackbar only offers undo.
     viewModel.swipeToDelete(expense)
-    assertEquals(1, repository.getAllExpenses().first().size)
-
-    // Invoke onCleared via reflection
-    val method = MainScreenViewModel::class.java.getDeclaredMethod("onCleared")
-    method.isAccessible = true
-    method.invoke(viewModel)
-
-    // Wait for the deletion to be processed in the background CoroutineScope
     val remainingExpenses = repository.getAllExpenses().first { it.isEmpty() }
     assertEquals(0, remainingExpenses.size)
+  }
+
+  @Test
+  fun undoRestoresDeletedExpense() = runTest {
+    val repository = FakeExpenseRepository()
+    val viewModel = MainScreenViewModel(repository, SavedStateHandle())
+    val expense = Expense(id = 1L, title = "Lunch", amount = 15.50, category = "Food", timestamp = 0L)
+    repository.insertExpense(expense)
+
+    viewModel.swipeToDelete(expense)
+    repository.getAllExpenses().first { it.isEmpty() }
+    viewModel.reportSnackbarResult(expense, SnackbarResult.ActionPerformed)
+
+    assertEquals(1, repository.getAllExpenses().first { it.isNotEmpty() }.size)
+  }
+
+  @Test
+  fun selectedBudget_isPersistedAndCorrect() = runTest {
+    val repository = FakeExpenseRepository()
+    val viewModel = MainScreenViewModel(repository, SavedStateHandle())
+
+    val budget1 = Budget(id = 1L, title = "Budget 1", limitAmount = 100.0, startTimestamp = 1000L, endTimestamp = 2000L)
+    val budget2 = Budget(id = 2L, title = "Budget 2", limitAmount = 200.0, startTimestamp = 2000L, endTimestamp = null) // active budget
+
+    repository.insertBudget(budget1)
+    repository.insertBudget(budget2)
+
+    val collectJob = launch { viewModel.uiState.collect {} }
+
+    // Initially, it should default to the active budget (budget2)
+    var successState = viewModel.uiState.filterIsInstance<MainScreenUiState.Success>().first()
+    assertEquals(budget2.id, successState.selectedBudget?.id)
+
+    // Select budget1 manually
+    viewModel.selectBudget(budget1)
+    successState = viewModel.uiState.filterIsInstance<MainScreenUiState.Success>().first { it.selectedBudget?.id == budget1.id }
+    assertEquals(budget1.id, successState.selectedBudget?.id)
+
+    // Select "All Expenses" (null)
+    viewModel.selectBudget(null)
+    successState = viewModel.uiState.filterIsInstance<MainScreenUiState.Success>().first { it.selectedBudget == null }
+    assertEquals(null, successState.selectedBudget)
+
+    collectJob.cancel()
   }
 }
 
@@ -200,14 +238,14 @@ private class FakeExpenseRepository : ExpenseRepository {
 
   override suspend fun importData(
     categories: List<Category>,
-    expenses: List<Pair<Expense, Long?>>,
+    expenses: List<BackupHelper.BackupExpense>,
     budgets: List<Budget>,
     overwrite: Boolean
   ) {
     if (overwrite) {
       _categories.value = categories
       _budgets.value = budgets
-      _expenses.value = expenses.map { it.first }
+      _expenses.value = expenses.map { it.expense }
     } else {
       val existingNames = _categories.value.map { it.name.lowercase() }.toSet()
       val newCats = _categories.value.toMutableList()
@@ -233,7 +271,7 @@ private class FakeExpenseRepository : ExpenseRepository {
 
       val newExpenses = _expenses.value.toMutableList()
       for (pair in expenses) {
-        val exp = pair.first
+        val exp = pair.expense
         val isDuplicate = _expenses.value.any {
           it.title.lowercase() == exp.title.lowercase() &&
           it.amount == exp.amount &&
@@ -252,6 +290,17 @@ private class FakeExpenseRepository : ExpenseRepository {
 
   override fun getActiveBudget(): Flow<Budget?> = _budgets.map { budgets ->
     budgets.firstOrNull { it.endTimestamp == null }
+  }
+
+  override suspend fun createBudget(title: String, limitAmount: Double, startTimestamp: Long): Long {
+    val current = _budgets.value.toMutableList()
+    current.indices
+      .filter { current[it].endTimestamp == null }
+      .forEach { index -> current[index] = current[index].copy(endTimestamp = startTimestamp) }
+    val id = (current.maxOfOrNull { it.id } ?: 0L) + 1L
+    current.add(Budget(id = id, title = title, limitAmount = limitAmount, startTimestamp = startTimestamp))
+    _budgets.value = current
+    return id
   }
 
   override suspend fun insertBudget(budget: Budget): Long {

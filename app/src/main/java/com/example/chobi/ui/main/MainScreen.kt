@@ -17,6 +17,7 @@ import com.example.chobi.ui.components.StackedSnackbarHost
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -167,6 +168,8 @@ fun MainScreen(
     }
   }
 
+  val scrollBehavior = TopAppBarDefaults.enterAlwaysScrollBehavior()
+
   Scaffold(
     snackbarHost = {
       StackedSnackbarHost(
@@ -191,7 +194,8 @@ fun MainScreen(
         colors = TopAppBarDefaults.topAppBarColors(
           containerColor = Color.Transparent,
           titleContentColor = MaterialTheme.colorScheme.onSurface
-        )
+        ),
+        scrollBehavior = scrollBehavior
       )
     },
     floatingActionButton = {
@@ -205,7 +209,7 @@ fun MainScreen(
         }
       }
     },
-    modifier = modifier
+    modifier = modifier.nestedScroll(scrollBehavior.nestedScrollConnection)
   ) { paddingValues ->
     when (state) {
       MainScreenUiState.Loading -> {

@@ -348,17 +348,18 @@ fun AddExpenseSheet(
       Button(
         onClick = {
           val amt = amountStr.toDoubleOrNull() ?: 0.0
-          if (title.isNotBlank() && amt > 0.0) {
+          if (amt > 0.0) {
+            val normalizedTitle = title.trim()
             val finalAmt = if (isIncome) -amt else amt
             val exp = expenseToEdit
             if (exp != null) {
-              onUpdateExpense?.invoke(exp.copy(title = title, amount = finalAmt, category = selectedCategoryName, timestamp = selectedTimestamp))
+              onUpdateExpense?.invoke(exp.copy(title = normalizedTitle, amount = finalAmt, category = selectedCategoryName, timestamp = selectedTimestamp))
             } else {
-              onAddExpense(title, finalAmt, selectedCategoryName, selectedTimestamp)
+              onAddExpense(normalizedTitle, finalAmt, selectedCategoryName, selectedTimestamp)
             }
           }
         },
-        enabled = title.isNotBlank() && (amountStr.toDoubleOrNull() ?: 0.0) > 0.0,
+        enabled = (amountStr.toDoubleOrNull() ?: 0.0) > 0.0,
         modifier = Modifier.weight(1f)
       ) {
         Text("Save")

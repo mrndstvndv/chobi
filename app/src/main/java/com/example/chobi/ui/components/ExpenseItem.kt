@@ -154,7 +154,13 @@ fun ExpenseItem(
         },
         supportingContent = {
           Text(
-            text = "${expense.category} • ${timeFormatter.format(Date(expense.timestamp))}",
+            text = buildString {
+              if (expense.title.isNotBlank()) {
+                append(expense.category)
+                append(" • ")
+              }
+              append(timeFormatter.format(Date(expense.timestamp)))
+            },
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant
           )
@@ -179,7 +185,7 @@ fun ExpenseItem(
         },
         content = {
           Text(
-            text = expense.title,
+            text = expense.title.trim().ifEmpty { expense.category },
             style = MaterialTheme.typography.titleMedium
           )
         },
@@ -188,10 +194,6 @@ fun ExpenseItem(
     }
   )
 }
-
-
-
-
 
 
 

@@ -145,7 +145,7 @@ fun StackedSnackbarHost(
           modifier = Modifier.zIndex((total - displayPosition).toFloat())
         ) {
           SwipeableSnackbar(
-            message = "Deleted \"${localItem.expense.title}\"",
+            message = "Deleted \"${localItem.expense.title.trim().ifEmpty { localItem.expense.category }}\"",
             icon = Icons.Default.Delete,
             actionLabel = "Undo",
             onAction = { onSnackbarResult(localItem.expense, SnackbarResult.ActionPerformed) },

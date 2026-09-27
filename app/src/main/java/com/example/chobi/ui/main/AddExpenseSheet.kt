@@ -54,7 +54,8 @@ fun AddExpenseSheet(
   currencyCode: String = "USD",
   modifier: Modifier = Modifier,
   expenseToEdit: Expense? = null,
-  onUpdateExpense: ((Expense) -> Unit)? = null
+  onUpdateExpense: ((Expense) -> Unit)? = null,
+  focusAmountInitially: Boolean = false
 ) {
   var title by remember(expenseToEdit) { mutableStateOf(expenseToEdit?.title ?: "") }
   var amountStr by remember(expenseToEdit) {
@@ -99,12 +100,17 @@ fun AddExpenseSheet(
   }
 
   val focusManager = LocalFocusManager.current
-  val focusRequester = remember { FocusRequester() }
+  val titleFocusRequester = remember { FocusRequester() }
+  val amountFocusRequester = remember { FocusRequester() }
 
   LaunchedEffect(Unit) {
     if (expenseToEdit == null) {
       kotlinx.coroutines.delay(250)
-      focusRequester.requestFocus()
+      if (focusAmountInitially) {
+        amountFocusRequester.requestFocus()
+      } else {
+        titleFocusRequester.requestFocus()
+      }
     }
   }
 
@@ -128,7 +134,7 @@ fun AddExpenseSheet(
       modifier = Modifier
         .fillMaxWidth()
         .padding(horizontal = 0.dp)
-        .focusRequester(focusRequester),
+        .focusRequester(titleFocusRequester),
       singleLine = true,
       keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
       keyboardActions = KeyboardActions(
@@ -156,7 +162,9 @@ fun AddExpenseSheet(
       label = { Text("Amount") },
       prefix = { Text(currencySymbol) },
       keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-      modifier = Modifier.fillMaxWidth(),
+      modifier = Modifier
+        .fillMaxWidth()
+        .focusRequester(amountFocusRequester),
       singleLine = true
     )
 

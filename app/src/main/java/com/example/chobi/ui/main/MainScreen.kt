@@ -57,6 +57,7 @@ val CURRENCY_KEY = stringPreferencesKey("currency_code")
 val TIME_FORMAT_KEY = stringPreferencesKey("time_format")
 val DYNAMIC_COLOR_KEY = booleanPreferencesKey("dynamic_color")
 val THEME_MODE_KEY = stringPreferencesKey("theme_mode")
+val LAST_TRANSACTION_TITLE_BLANK_KEY = booleanPreferencesKey("last_transaction_title_blank")
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Suppress("DEPRECATION")
@@ -85,6 +86,13 @@ fun MainScreen(
     }
   }
   val selectedTimeFormat by timeFormatFlow.collectAsStateWithLifecycle(initialValue = "auto")
+  val lastTransactionTitleBlankFlow = remember(context) {
+    context.dataStore.data.map { preferences ->
+      preferences[LAST_TRANSACTION_TITLE_BLANK_KEY] ?: false
+    }
+  }
+  val lastTransactionTitleBlank by lastTransactionTitleBlankFlow
+    .collectAsStateWithLifecycle(initialValue = false)
 
   val app = context.applicationContext as ChobiApplication
   val viewModel: MainScreenViewModel = viewModel {
@@ -262,8 +270,14 @@ fun MainScreen(
             AddExpenseSheet(
               categories = success.categories,
               expenseToEdit = expenseToEdit,
+              focusAmountInitially = lastTransactionTitleBlank,
               onAddExpense = { title, amount, categoryName, timestamp ->
                 viewModel.addExpense(title, amount, categoryName, timestamp, selectedBudget?.id)
+                coroutineScope.launch {
+                  context.dataStore.edit { preferences ->
+                    preferences[LAST_TRANSACTION_TITLE_BLANK_KEY] = title.isBlank()
+                  }
+                }
                 coroutineScope.launch {
                   sheetState.hide()
                   showBottomSheet = false

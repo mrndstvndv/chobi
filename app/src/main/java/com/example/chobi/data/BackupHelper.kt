@@ -88,12 +88,15 @@ object BackupHelper {
                         .takeUnless { it == Long.MIN_VALUE }
                         ?.let { "legacy-start:$it" }
                 val expense = Expense(
-                    title = expObj.getString("title"),
+                    title = if (expObj.has("title") && !expObj.isNull("title")) {
+                        expObj.optString("title").trim()
+                    } else {
+                        ""
+                    },
                     amount = expObj.getDouble("amount"),
                     timestamp = expObj.getLong("timestamp"),
                     category = expObj.getString("category")
                 )
-                require(expense.title.isNotBlank()) { "Expense title cannot be blank" }
                 require(expense.amount.isFinite()) { "Expense amount must be finite" }
                 expenses.add(BackupExpense(expense, budgetKey))
             }

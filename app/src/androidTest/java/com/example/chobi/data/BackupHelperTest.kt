@@ -35,4 +35,22 @@ class BackupHelperTest {
 
         assertTrue(error is IllegalArgumentException)
     }
+
+    @Test
+    fun importAcceptsMissingAndBlankExpenseTitles() {
+        val (_, importedExpenses, _) = BackupHelper.importFromJson(
+            """
+            {
+              "version": 2,
+              "expenses": [
+                {"amount": 10.0, "timestamp": 2000, "category": "Food"},
+                {"title": "   ", "amount": 20.0, "timestamp": 3000, "category": "Transport"}
+              ]
+            }
+            """.trimIndent()
+        )
+
+        assertEquals("", importedExpenses[0].expense.title)
+        assertEquals("", importedExpenses[1].expense.title)
+    }
 }

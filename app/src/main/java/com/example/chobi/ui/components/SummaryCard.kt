@@ -9,9 +9,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.ArrowDropDown
-import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -33,10 +31,8 @@ import com.example.chobi.data.Expense
 fun SummaryCard(
   expenses: List<Expense>,
   totalAmount: Double,
-  budgets: List<Budget>,
   selectedBudget: Budget?,
-  onSelectBudget: (Budget?) -> Unit,
-  onNewBudgetClick: () -> Unit,
+  onBudgetsClick: () -> Unit,
   onClick: () -> Unit,
   currencyCode: String,
   currencyFormatter: NumberFormat,
@@ -44,7 +40,6 @@ fun SummaryCard(
 ) {
   val cardShape = RoundedCornerShape(topStart = 28.dp, topEnd = 12.dp, bottomStart = 12.dp, bottomEnd = 28.dp)
   val colors = CardDefaults.cardColors(containerColor = Color.Transparent)
-  var showDropdown by remember { mutableStateOf(false) }
 
   Card(
     modifier = modifier.clip(cardShape),
@@ -74,7 +69,7 @@ fun SummaryCard(
             Row(
               modifier = Modifier
                 .clip(RoundedCornerShape(8.dp))
-                .clickable { showDropdown = true }
+                .clickable(onClickLabel = "Manage budgets") { onBudgetsClick() }
                 .padding(vertical = 4.dp, horizontal = 8.dp),
               verticalAlignment = Alignment.CenterVertically
             ) {
@@ -84,87 +79,11 @@ fun SummaryCard(
                 color = MaterialTheme.colorScheme.onPrimaryContainer
               )
               Icon(
-                imageVector = Icons.Default.ArrowDropDown,
-                contentDescription = "Switch Budget",
+                imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                contentDescription = null,
                 tint = MaterialTheme.colorScheme.onPrimaryContainer,
                 modifier = Modifier.size(24.dp)
               )
-            }
-
-            DropdownMenu(
-              expanded = showDropdown,
-              onDismissRequest = { showDropdown = false },
-              modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
-              containerColor = Color.Transparent,
-              shadowElevation = 0.dp,
-              tonalElevation = 0.dp,
-              border = null
-            ) {
-              val groupCount = if (budgets.isNotEmpty()) 3 else 2
-
-              DropdownMenuGroup(
-                shapes = MenuDefaults.groupShape(0, groupCount),
-                containerColor = MenuDefaults.groupStandardContainerColor
-              ) {
-                DropdownMenuItem(
-                  text = {
-                    Text(
-                      text = "All Expenses (No Budget)",
-                      fontWeight = if (selectedBudget == null) FontWeight.Bold else FontWeight.Normal
-                    )
-                  },
-                  onClick = {
-                    onSelectBudget(null)
-                    showDropdown = false
-                  }
-                )
-              }
-
-              if (budgets.isNotEmpty()) {
-                Spacer(modifier = Modifier.height(MenuDefaults.GroupSpacing))
-                DropdownMenuGroup(
-                  shapes = MenuDefaults.groupShape(1, groupCount),
-                  containerColor = MenuDefaults.groupStandardContainerColor
-                ) {
-                  budgets.forEach { budget ->
-                    val isSelected = selectedBudget?.id == budget.id
-                    DropdownMenuItem(
-                      text = {
-                        Text(
-                          text = budget.title,
-                          fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
-                        )
-                      },
-                      onClick = {
-                        onSelectBudget(budget)
-                        showDropdown = false
-                      }
-                    )
-                  }
-                }
-              }
-
-              Spacer(modifier = Modifier.height(MenuDefaults.GroupSpacing))
-              DropdownMenuGroup(
-                shapes = MenuDefaults.groupShape(if (budgets.isNotEmpty()) 2 else 1, groupCount),
-                containerColor = MenuDefaults.groupStandardContainerColor
-              ) {
-                DropdownMenuItem(
-                  text = { Text("Create New Budget") },
-                  onClick = {
-                    onNewBudgetClick()
-                    showDropdown = false
-                  },
-                  leadingIcon = {
-                    Icon(
-                      imageVector = Icons.Default.Add,
-                      contentDescription = null
-                    )
-                  }
-                )
-              }
-
-              Spacer(modifier = Modifier.height(12.dp))
             }
           }
 

@@ -18,7 +18,6 @@ import com.example.chobi.data.getGroupHeader
 import com.example.chobi.theme.ChobiTheme
 import com.example.chobi.ui.components.ExpenseItem
 import com.example.chobi.ui.components.SummaryCard
-import com.example.chobi.ui.components.BudgetDialog
 import java.util.Locale
 
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
@@ -26,19 +25,16 @@ import java.util.Locale
 fun MainContent(
   expenses: List<Expense>,
   categories: List<Category>,
-  budgets: List<Budget>,
   selectedBudget: Budget?,
-  onSelectBudget: (Budget?) -> Unit,
   onDeleteExpense: (Expense) -> Unit,
-  onCreateBudget: (title: String, limitAmount: Double) -> Unit,
+  onBudgetsClick: () -> Unit,
   onSummaryCardClick: (Budget?) -> Unit,
+  modifier: Modifier = Modifier,
+  contentPadding: PaddingValues = PaddingValues(),
   currencyCode: String = "USD",
   timeFormatPreference: String = "auto",
-  modifier: Modifier = Modifier,
   onExpenseClick: ((Expense) -> Unit)? = null
 ) {
-
-  var showBudgetDialog by remember { mutableStateOf(false) }
 
   val filteredExpenses = remember(expenses, selectedBudget) {
     if (selectedBudget == null) expenses else expenses.filter { it.budgetId == selectedBudget.id }
@@ -66,28 +62,16 @@ fun MainContent(
     categories.associateBy { it.name.lowercase() }
   }
 
-  if (showBudgetDialog) {
-    BudgetDialog(
-      onDismiss = { showBudgetDialog = false },
-      onConfirm = { title, limit ->
-        onCreateBudget(title, limit)
-        showBudgetDialog = false
-      }
-    )
-  }
-
   if (filteredExpenses.isEmpty()) {
     Column(
-      modifier = modifier,
+      modifier = modifier.padding(contentPadding),
       verticalArrangement = Arrangement.Top
     ) {
       SummaryCard(
         expenses = filteredExpenses,
         totalAmount = totalAmount,
-        budgets = budgets,
         selectedBudget = selectedBudget,
-        onSelectBudget = onSelectBudget,
-        onNewBudgetClick = { showBudgetDialog = true },
+        onBudgetsClick = onBudgetsClick,
         onClick = { onSummaryCardClick(selectedBudget) },
         currencyCode = currencyCode,
         currencyFormatter = currencyFormatter,
@@ -117,7 +101,10 @@ fun MainContent(
     }
   } else {
     LazyColumn(
-      modifier = modifier,
+      // Insets are consumed so nested inset-aware components don't double-apply them,
+      // while contentPadding keeps the first/last items clear of the system bars.
+      modifier = modifier.consumeWindowInsets(contentPadding),
+      contentPadding = contentPadding,
       verticalArrangement = Arrangement.spacedBy(ListItemDefaults.SegmentedGap)
     ) {
       // Summary/Wallet Card
@@ -125,10 +112,8 @@ fun MainContent(
         SummaryCard(
           expenses = filteredExpenses,
           totalAmount = totalAmount,
-          budgets = budgets,
           selectedBudget = selectedBudget,
-          onSelectBudget = onSelectBudget,
-          onNewBudgetClick = { showBudgetDialog = true },
+          onBudgetsClick = onBudgetsClick,
           onClick = { onSummaryCardClick(selectedBudget) },
           currencyCode = currencyCode,
           currencyFormatter = currencyFormatter,
@@ -200,11 +185,9 @@ fun MainScreenPreview() {
         Category(id = 1, name = "Food", iconName = "Restaurant", colorHex = "#FF9800"),
         Category(id = 2, name = "Transport", iconName = "DirectionsCar", colorHex = "#2196F3")
       ),
-      budgets = emptyList(),
       selectedBudget = null,
-      onSelectBudget = {},
       onDeleteExpense = {},
-      onCreateBudget = { _, _ -> },
+      onBudgetsClick = {},
       onSummaryCardClick = {}
     )
   }

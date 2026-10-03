@@ -1,5 +1,6 @@
 package com.example.chobi.data
 
+import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.PrimaryKey
 
@@ -10,5 +11,7 @@ data class Budget(
     val title: String,
     val limitAmount: Double,
     val startTimestamp: Long,
-    val endTimestamp: Long? = null
+    val endTimestamp: Long? = null,
+    @ColumnInfo(defaultValue = "0")
+    val archived: Boolean = false
 )

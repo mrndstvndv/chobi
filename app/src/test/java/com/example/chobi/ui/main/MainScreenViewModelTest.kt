@@ -170,6 +170,35 @@ class MainScreenViewModelTest {
 
     collectJob.cancel()
   }
+
+  @Test
+  fun archivedBudget_isNeverSelected_andCanBeRestored() = runTest {
+    val repository = FakeExpenseRepository()
+    val viewModel = MainScreenViewModel(repository, SavedStateHandle())
+
+    val older = Budget(id = 1L, title = "Older", limitAmount = 100.0, startTimestamp = 1000L, endTimestamp = 2000L)
+    val current = Budget(id = 2L, title = "Current", limitAmount = 200.0, startTimestamp = 2000L)
+    repository.insertBudget(older)
+    repository.insertBudget(current)
+
+    val collectJob = launch { viewModel.uiState.collect {} }
+
+    viewModel.selectBudget(current)
+    viewModel.setBudgetArchived(current, true)
+
+    // Archiving the selected budget falls back to a visible one, but keeps it in the full list.
+    val archivedState = viewModel.uiState.filterIsInstance<MainScreenUiState.Success>()
+      .first { it.budgets.any { b -> b.id == current.id && b.archived } }
+    assertEquals(older.id, archivedState.selectedBudget?.id)
+    assertEquals(2, archivedState.budgets.size)
+
+    viewModel.setBudgetArchived(current, false)
+    val restored = viewModel.uiState.filterIsInstance<MainScreenUiState.Success>()
+      .first { it.budgets.none { b -> b.archived } && it.selectedBudget?.id == current.id }
+    assertEquals(current.id, restored.selectedBudget?.id)
+
+    collectJob.cancel()
+  }
 }
 
 private class FakeExpenseRepository : ExpenseRepository {

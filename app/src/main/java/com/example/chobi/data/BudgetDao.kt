@@ -13,7 +13,7 @@ interface BudgetDao {
     @Query("SELECT * FROM budgets ORDER BY startTimestamp DESC")
     fun getAllBudgets(): Flow<List<Budget>>
 
-    @Query("SELECT * FROM budgets WHERE endTimestamp IS NULL ORDER BY startTimestamp DESC LIMIT 1")
+    @Query("SELECT * FROM budgets WHERE endTimestamp IS NULL AND archived = 0 ORDER BY startTimestamp DESC LIMIT 1")
     fun getActiveBudget(): Flow<Budget?>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)

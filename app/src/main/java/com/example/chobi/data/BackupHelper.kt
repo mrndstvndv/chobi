@@ -51,6 +51,9 @@ object BackupHelper {
             if (bud.endTimestamp != null) {
                 budObj.put("endTimestamp", bud.endTimestamp)
             }
+            if (bud.archived) {
+                budObj.put("archived", true)
+            }
             budgetsArray.put(budObj)
         }
         root.put("budgets", budgetsArray)
@@ -111,7 +114,8 @@ object BackupHelper {
                     title = budObj.getString("title"),
                     limitAmount = budObj.getDouble("limitAmount"),
                     startTimestamp = budObj.getLong("startTimestamp"),
-                    endTimestamp = endTimestamp
+                    endTimestamp = endTimestamp,
+                    archived = budObj.optBoolean("archived", false)
                 )
                 require(budget.title.isNotBlank()) { "Budget title cannot be blank" }
                 require(budget.limitAmount.isFinite() && budget.limitAmount >= 0.0) {

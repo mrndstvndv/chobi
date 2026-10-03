@@ -5,6 +5,7 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.flow.map
 import androidx.compose.material3.SnackbarResult
 import androidx.lifecycle.SavedStateHandle
+import androidx.lifecycle.createSavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.chobi.data.AppDatabase
@@ -52,14 +53,17 @@ class MainScreenViewModel(
       val activeIds = activeSnackbars.map { it.id }.toSet()
       val filteredExpenses = expenses.filter { it.id !in activeIds }
 
+      // Archived budgets are hidden from the home screen, so they can never be the
+      // resolved selection; they stay in `budgets` so backups and the budgets screen see them.
+      val visibleBudgets = budgets.filterNot { it.archived }
       val resolvedBudget = if (selectedId == -1L) {
-        budgets.firstOrNull { it.endTimestamp == null } ?: budgets.firstOrNull()
+        visibleBudgets.firstOrNull { it.endTimestamp == null } ?: visibleBudgets.firstOrNull()
       } else if (selectedId == null) {
         null
       } else {
-        budgets.firstOrNull { it.id == selectedId }
-          ?: budgets.firstOrNull { it.endTimestamp == null }
-          ?: budgets.firstOrNull()
+        visibleBudgets.firstOrNull { it.id == selectedId }
+          ?: visibleBudgets.firstOrNull { it.endTimestamp == null }
+          ?: visibleBudgets.firstOrNull()
       }
 
       MainScreenUiState.Success(
@@ -170,6 +174,12 @@ class MainScreenViewModel(
   fun deleteBudget(budget: Budget) {
     viewModelScope.launch {
       expenseRepository.deleteBudget(budget)
+    }
+  }
+
+  fun setBudgetArchived(budget: Budget, archived: Boolean) {
+    viewModelScope.launch {
+      expenseRepository.updateBudget(budget.copy(archived = archived))
     }
   }
 
@@ -309,4 +319,17 @@ sealed interface MainScreenUiState {
     val budgets: List<Budget>,
     val selectedBudget: Budget?
   ) : MainScreenUiState
+}
+
+/**
+ * The home and budgets screens share one [MainScreenViewModel] (it is activity-scoped, so the
+ * default key resolves to the same instance), which keeps the selected budget in sync.
+ */
+@androidx.compose.runtime.Composable
+fun rememberMainScreenViewModel(): MainScreenViewModel {
+  val app = androidx.compose.ui.platform.LocalContext.current.applicationContext
+    as com.example.chobi.ChobiApplication
+  return androidx.lifecycle.viewmodel.compose.viewModel {
+    MainScreenViewModel(app.expenseRepository, createSavedStateHandle())
+  }
 }

@@ -25,6 +25,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.lifecycle.createSavedStateHandle
 import androidx.navigation3.runtime.NavKey
 import com.example.chobi.ChobiApplication
+import com.example.chobi.Budgets
 import com.example.chobi.Dashboard
 import com.example.chobi.data.Expense
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -94,11 +95,7 @@ fun MainScreen(
   val lastTransactionTitleBlank by lastTransactionTitleBlankFlow
     .collectAsStateWithLifecycle(initialValue = false)
 
-  val app = context.applicationContext as ChobiApplication
-  val viewModel: MainScreenViewModel = viewModel {
-    val savedStateHandle = createSavedStateHandle()
-    MainScreenViewModel(app.expenseRepository, savedStateHandle)
-  }
+  val viewModel = rememberMainScreenViewModel()
   val state by viewModel.uiState.collectAsStateWithLifecycle()
   val activeSnackbars by viewModel.activeSnackbars.collectAsStateWithLifecycle()
 
@@ -235,15 +232,11 @@ fun MainScreen(
         MainContent(
           expenses = success.expenses,
           categories = success.categories,
-          budgets = success.budgets,
           selectedBudget = selectedBudget,
-          onSelectBudget = { viewModel.selectBudget(it) },
           onDeleteExpense = { expense ->
             viewModel.swipeToDelete(expense)
           },
-          onCreateBudget = { title, limit ->
-            viewModel.createNewBudget(title, limit)
-          },
+          onBudgetsClick = { onItemClick(Budgets) },
           onSummaryCardClick = { budget ->
             onItemClick(Dashboard(budgetId = budget?.id))
           },
@@ -253,9 +246,8 @@ fun MainScreen(
           },
           currencyCode = selectedCurrencyCode,
           timeFormatPreference = selectedTimeFormat,
-          modifier = Modifier
-            .fillMaxSize()
-            .padding(paddingValues)
+          modifier = Modifier.fillMaxSize(),
+          contentPadding = paddingValues
         )
 
         if (showBottomSheet) {

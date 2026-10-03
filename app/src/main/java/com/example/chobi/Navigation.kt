@@ -10,6 +10,7 @@ import androidx.navigation3.runtime.rememberNavBackStack
 import androidx.navigation3.ui.NavDisplay
 import com.example.chobi.ui.budgets.BudgetsScreen
 import com.example.chobi.ui.main.MainScreen
+import com.example.chobi.ui.settings.SettingsScreen
 import com.example.chobi.ui.dashboard.DashboardScreen
 
 @Composable
@@ -26,6 +27,9 @@ fun MainNavigation() {
         }
         entry<Budgets> {
           BudgetsScreen(onBack = { backStack.removeLastOrNull() })
+        }
+        entry<Settings> {
+          SettingsScreen(onBack = { backStack.removeLastOrNull() })
         }
         entry<Dashboard> { key ->
           DashboardScreen(

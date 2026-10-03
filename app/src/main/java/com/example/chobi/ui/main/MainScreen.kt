@@ -27,6 +27,7 @@ import androidx.navigation3.runtime.NavKey
 import com.example.chobi.ChobiApplication
 import com.example.chobi.Budgets
 import com.example.chobi.Dashboard
+import com.example.chobi.Settings
 import com.example.chobi.data.Expense
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -189,10 +190,10 @@ fun MainScreen(
       TopAppBar(
         title = { Text("Chobi", style = MaterialTheme.typography.titleLarge) },
         actions = {
-          IconButton(onClick = { showSettingsDialog = true }) {
+          IconButton(onClick = { onItemClick(Settings) }) {
             Icon(
               imageVector = Icons.Default.Settings,
-              contentDescription = "Settings & Backup"
+              contentDescription = "Settings"
             )
           }
         },

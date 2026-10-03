@@ -7,4 +7,6 @@ import kotlinx.serialization.Serializable
 
 @Serializable data object Budgets : NavKey
 
+@Serializable data object Settings : NavKey
+
 @Serializable data class Dashboard(val budgetId: Long?) : NavKey

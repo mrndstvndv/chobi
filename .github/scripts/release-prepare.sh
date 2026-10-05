@@ -5,7 +5,8 @@ set -euo pipefail
 
 VERSION="${1:?usage: release-prepare.sh <version>}"
 
-# gradle-semantic-release-plugin has already stamped the version into gradle.properties.
+# Stamp the version into gradle.properties; @semantic-release/git commits it afterwards.
+sed -i -E "s/^version[[:space:]]*=.*/version = ${VERSION}/" gradle.properties
 grep -Eq "^version[[:space:]]*=[[:space:]]*${VERSION}[[:space:]]*$" gradle.properties
 
 # Signing config comes from keystore.properties, which the workflow writes from secrets.

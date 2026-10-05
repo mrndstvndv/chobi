@@ -15,7 +15,6 @@
         "changelogFile": "CHANGELOG.md"
       }
     ],
-    "gradle-semantic-release-plugin",
     [
       "@semantic-release/exec",
       {

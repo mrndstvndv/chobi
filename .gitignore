@@ -15,3 +15,7 @@
 local.properties
 release.jks
 keystore.properties
+
+# Release tooling
+node_modules/
+release-assets/

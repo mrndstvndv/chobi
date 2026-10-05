@@ -14,8 +14,8 @@ android {
         applicationId = "mrndstvndv.me.chobi"
         minSdk = 24
         targetSdk = 37
-        versionCode = 1
-        versionName = "1.0"
+        versionCode = (findProperty("versionCode") as String?)?.toInt() ?: 1
+        versionName = (findProperty("versionName") as String?) ?: rootProject.version.toString()
     }
 
     signingConfigs {

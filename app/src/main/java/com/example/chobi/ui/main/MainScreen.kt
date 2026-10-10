@@ -19,6 +19,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -96,6 +97,7 @@ fun MainScreen(
   val lastTransactionTitleBlank by lastTransactionTitleBlankFlow
     .collectAsStateWithLifecycle(initialValue = false)
 
+  val layoutDirection = LocalLayoutDirection.current
   val viewModel = rememberMainScreenViewModel()
   val state by viewModel.uiState.collectAsStateWithLifecycle()
   val activeSnackbars by viewModel.activeSnackbars.collectAsStateWithLifecycle()
@@ -178,12 +180,13 @@ fun MainScreen(
 
   Scaffold(
     snackbarHost = {
+      // Scaffold already places the snackbar host above the navigation bar inset (and the
+      // FAB), so no additional navigationBarsPadding() is applied here.
       StackedSnackbarHost(
         activeSnackbars = activeSnackbars,
         onSnackbarResult = { expense, result ->
           viewModel.reportSnackbarResult(expense, result)
-        },
-        modifier = Modifier.navigationBarsPadding()
+        }
       )
     },
     topBar = {
@@ -198,7 +201,19 @@ fun MainScreen(
           }
         },
         colors = TopAppBarDefaults.topAppBarColors(
-          containerColor = Color.Transparent,
+          // At rest the bar matches the window background, so the bar and the status bar
+          // area read as a single surface.
+          //
+          // As soon as the list is scrolled Material3 swaps the container color for
+          // scrolledContainerColor on the whole bar box. It must be transparent rather
+          // than the background color: enterAlwaysScrollBehavior collapses the bar but
+          // always keeps the status bar inset strip painted, so any opaque value draws a
+          // solid band across the top and hides the summary card while it scrolls up
+          // behind it. Transparent lets the list run under the status bar edge-to-edge.
+          // The Material baseline default (surfaceContainer) is not part of this app's
+          // palette either, so an explicit value is required.
+          containerColor = MaterialTheme.colorScheme.background,
+          scrolledContainerColor = Color.Transparent,
           titleContentColor = MaterialTheme.colorScheme.onSurface
         ),
         scrollBehavior = scrollBehavior
@@ -248,7 +263,13 @@ fun MainScreen(
           currencyCode = selectedCurrencyCode,
           timeFormatPreference = selectedTimeFormat,
           modifier = Modifier.fillMaxSize(),
-          contentPadding = paddingValues
+          // Scaffold doesn't reserve space for the FAB, so add clearance below the last row.
+          contentPadding = PaddingValues(
+            start = paddingValues.calculateStartPadding(layoutDirection),
+            top = paddingValues.calculateTopPadding(),
+            end = paddingValues.calculateEndPadding(layoutDirection),
+            bottom = paddingValues.calculateBottomPadding() + 88.dp
+          )
         )
 
         if (showBottomSheet) {

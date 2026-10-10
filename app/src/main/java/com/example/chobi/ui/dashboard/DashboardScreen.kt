@@ -25,7 +25,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -147,6 +149,8 @@ fun DashboardScreen(
 
     var showDeleteConfirm by remember { mutableStateOf(false) }
 
+    val scrollBehavior = TopAppBarDefaults.enterAlwaysScrollBehavior()
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -168,17 +172,32 @@ fun DashboardScreen(
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = Color.Transparent,
+                    // Matches the window background so the bar looks identical to the
+                    // status bar area at rest and while scrolled. scrolledContainerColor
+                    // must be set explicitly: the default would fall back to the Material
+                    // baseline surfaceContainer, which isn't part of this app's palette.
+                    containerColor = MaterialTheme.colorScheme.background,
+                    scrolledContainerColor = MaterialTheme.colorScheme.background,
                     titleContentColor = MaterialTheme.colorScheme.onSurface
-                )
+                ),
+                scrollBehavior = scrollBehavior
             )
         },
-        modifier = modifier
+        modifier = modifier.nestedScroll(scrollBehavior.nestedScrollConnection)
     ) { paddingValues ->
+        // Only the top and horizontal insets pad the viewport. The bottom (navigation bar) inset
+        // is applied inside the scrolling content so it scrolls behind the bar edge-to-edge.
+        val layoutDirection = LocalLayoutDirection.current
+        val viewportPadding = PaddingValues(
+            start = paddingValues.calculateStartPadding(layoutDirection),
+            top = paddingValues.calculateTopPadding(),
+            end = paddingValues.calculateEndPadding(layoutDirection)
+        )
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(paddingValues)
+                .padding(viewportPadding)
+                .consumeWindowInsets(viewportPadding)
         ) {
             when (state) {
                 DashboardUiState.Loading -> {
@@ -250,8 +269,13 @@ fun DashboardScreen(
                     Column(
                         modifier = Modifier
                             .fillMaxSize()
+                            // imePadding must come before verticalScroll so the viewport
+                            // shrinks for the keyboard instead of scrolling behind it.
+                            .imePadding()
                             .verticalScroll(rememberScrollState())
-                            .padding(horizontal = 16.dp, vertical = 8.dp),
+                            .padding(horizontal = 16.dp, vertical = 8.dp)
+                            // After imePadding, so it drops out while the keyboard is open.
+                            .navigationBarsPadding(),
                         verticalArrangement = Arrangement.spacedBy(16.dp)
                     ) {
                         // 1. Budget Name Edit and Delete Actions
